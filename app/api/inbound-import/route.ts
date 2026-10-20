@@ -59,7 +59,8 @@ export async function POST(request: Request) {
       const parsedDate = new Date(row.date + "T00:00:00.000Z");
       if (Number.isNaN(parsedDate.valueOf()) || parsedDate.toISOString().slice(0, 10) !== row.date)
         throw new HttpError("One or more rows contain an invalid date.");
-      const key = JSON.stringify([row.date, row.time, row.type, row.document, row.supplier, row.plate, row.driver]);
+      // One truck at one appointment time is one visit, even across multiple PO/STO lines.
+      const key = JSON.stringify([row.date, row.time, row.plate.trim().toUpperCase()]);
       groups.set(key, [...(groups.get(key) ?? []), row]);
     }
     const visits: Visit[] = [];

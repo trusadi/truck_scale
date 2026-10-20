@@ -830,7 +830,7 @@ export function createOperations(date: string, owner: string): Operations {
 export function normalizeOperations(input: Operations): Operations {
   const state = structuredClone(input);
   const previousSchemaVersion = state.schemaVersion ?? 0;
-  state.schemaVersion = 4;
+  state.schemaVersion = 5;
   if (previousSchemaVersion < 3 && !state.visits.some((visit) => visit.id === "RETURN-001"))
     state.visits.push(createSampleReturnVisit(state.sampleDate));
   state.processes ??= {};
@@ -888,6 +888,54 @@ export function normalizeOperations(input: Operations): Operations {
       !visit.productTickets[0].result
     )
       visit.productTickets[0].result = visit.result;
+  }
+  if (previousSchemaVersion < 5) {
+    const imported = new Map<string, Visit[]>();
+    for (const visit of state.visits) {
+      if (
+        !visit.id.startsWith("IMP-") ||
+        visit.direction !== "inbound" ||
+        !["scheduled", "waiting"].includes(visit.stage) ||
+        visit.readings.length > 0 ||
+        visit.result
+      ) continue;
+      const key = JSON.stringify([
+        visit.date,
+        visit.plant,
+        visit.time,
+        visit.plate.trim().toUpperCase(),
+      ]);
+      imported.set(key, [...(imported.get(key) ?? []), visit]);
+    }
+    const removeIds = new Set<string>();
+    for (const group of imported.values()) {
+      if (group.length < 2) continue;
+      const ordered = [...group].sort((a, b) =>
+        (a.stage === "waiting" ? 0 : 1) - (b.stage === "waiting" ? 0 : 1) ||
+        (a.arrivedAt ?? "").localeCompare(b.arrivedAt ?? ""),
+      );
+      const primary = ordered[0];
+      for (const extra of ordered.slice(1)) {
+        const firstSequence = primary.productTickets.length;
+        primary.lines.push(...extra.lines);
+        primary.productTickets.push(
+          ...extra.productTickets.map((item, index) => ({
+            ...item,
+            sequence: firstSequence + index + 1,
+          })),
+        );
+        primary.expectedKg = (primary.expectedKg ?? 0) + (extra.expectedKg ?? 0);
+        primary.events.push(...extra.events);
+        removeIds.add(extra.id);
+      }
+      primary.events.push({
+        at: new Date().toISOString(),
+        text: "Combined duplicate imported rows into one truck visit",
+        by: "System",
+      });
+    }
+    if (removeIds.size)
+      state.visits = state.visits.filter((visit) => !removeIds.has(visit.id));
   }
   return state;
 }
