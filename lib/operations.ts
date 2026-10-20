@@ -156,6 +156,7 @@ export type Operations = {
   processes: Record<string, ProcessTemplate>;
   companyCodes: { id: string; name: string }[];
   sites: { id: string; company: string; label: string }[];
+  materialCatalog: { code: string; description: string }[];
   supervisors: Supervisor[];
   emailEnabled: boolean;
   notifications: Notification[];
@@ -712,7 +713,7 @@ export function createOperations(date: string, owner: string): Operations {
         direction,
       );
   const state: Operations = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     revision: 0,
     createdAt: now,
     sampleDate: date,
@@ -721,6 +722,7 @@ export function createOperations(date: string, owner: string): Operations {
     processes,
     companyCodes: COMPANIES.map((c) => ({ ...c })),
     sites: PLANTS.map((p) => ({ id: p.id, company: p.company, label: p.label })),
+    materialCatalog: [...new Map(visits.flatMap((visit) => visit.lines).map((line) => [line.material, { code: line.material, description: line.description }])).values()],
     supervisors: [
       {
         email: owner,
@@ -828,13 +830,20 @@ export function createOperations(date: string, owner: string): Operations {
 export function normalizeOperations(input: Operations): Operations {
   const state = structuredClone(input);
   const previousSchemaVersion = state.schemaVersion ?? 0;
-  state.schemaVersion = 3;
+  state.schemaVersion = 4;
   if (previousSchemaVersion < 3 && !state.visits.some((visit) => visit.id === "RETURN-001"))
     state.visits.push(createSampleReturnVisit(state.sampleDate));
   state.processes ??= {};
   state.rules ??= {};
   (state.companyCodes as typeof state.companyCodes | undefined) ??= COMPANIES.map((c) => ({ ...c }));
   (state.sites as typeof state.sites | undefined) ??= PLANTS.map((p) => ({ id: p.id, company: p.company, label: p.label }));
+  const catalog = new Map((state.materialCatalog ?? []).map((item) => [item.code.trim().toUpperCase(), item]));
+  for (const line of state.visits.flatMap((visit) => visit.lines)) {
+    const code = line.material.trim().toUpperCase();
+    if (code && line.description.trim() && !catalog.has(code))
+      catalog.set(code, { code, description: line.description.trim() });
+  }
+  state.materialCatalog = [...catalog.values()];
   for (const company of COMPANIES) {
     for (const direction of ["inbound", "outbound"] as Direction[]) {
       const companyKey = toleranceRuleKey({
@@ -968,6 +977,8 @@ export type Command = {
   level?: ToleranceLevel;
   company?: string;
   material?: string;
+  materialCode?: string;
+  materialDescription?: string;
   process?: ProcessTemplate;
   plant?: string;
   direction?: Direction;
@@ -1126,6 +1137,23 @@ export function applyCommand(
       by: actor.email,
       text: "Added notification recipient " + email,
     });
+    return s;
+  }
+  if (cmd.kind === "add_material") {
+    if (!actor.isAdmin) throw new Error("Only the administrator can manage the material catalog.");
+    const code = (cmd.materialCode ?? "").trim().toUpperCase();
+    const description = (cmd.materialDescription ?? "").trim();
+    if (!/^[A-Z0-9][A-Z0-9._/-]{0,39}$/.test(code))
+      throw new Error("Enter a material code using up to 40 letters, digits, dots, slashes, dashes, or underscores.");
+    if (!description || description.length > 150)
+      throw new Error("Enter a material description (max 150 characters).");
+    if (s.materialCatalog.some((item) => item.code.toUpperCase() === code))
+      throw new Error("A material with this code already exists.");
+    if (s.materialCatalog.length >= 1000)
+      throw new Error("The material catalog is full.");
+    s.materialCatalog.push({ code, description });
+    s.materialCatalog.sort((a, b) => a.code.localeCompare(b.code));
+    s.audit.push({ at: now, by: actor.email, text: "Added material " + code + " - " + description });
     return s;
   }
   if (cmd.kind === "add_company") {

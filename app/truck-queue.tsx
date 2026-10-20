@@ -2549,7 +2549,7 @@ function SettingsPanel({
   const firstMaterial =
     state.visits
       .find((visit) => visit.company === defaultCompany && visit.plant === defaultPlant)
-      ?.lines[0]?.material ?? "RM-100101";
+      ?.lines[0]?.material ?? state.materialCatalog[0]?.code ?? "RM-100101";
   const [company, setCompany] = useState(defaultCompany),
     [configPlant, setConfigPlant] = useState(defaultPlant),
     [level, setLevel] = useState<ToleranceLevel>("company"),
@@ -2638,17 +2638,7 @@ function SettingsPanel({
     }
   }, [selection, state, dirty]);
   const companyPlants = state.sites.filter((item) => item.company === company);
-  const materials = [
-    ...new Map(
-      state.visits
-        .filter(
-          (visit) =>
-            visit.company === company && visit.plant === configPlant,
-        )
-        .flatMap((visit) => visit.lines)
-        .map((line) => [line.material, line]),
-    ).values(),
-  ];
+  const materials = state.materialCatalog;
   const configuredRule = state.rules[selectorKey];
   return (
     <div className="settings-layout">
@@ -2688,7 +2678,7 @@ function SettingsPanel({
                       (visit) =>
                         visit.company === nextCompany &&
                         visit.plant === nextPlant,
-                    )?.lines[0]?.material ?? "RM-100101";
+                    )?.lines[0]?.material ?? state.materialCatalog[0]?.code ?? "RM-100101";
                   setCompany(nextCompany);
                   setConfigPlant(nextPlant);
                   setMaterial(nextMaterial);
@@ -2740,7 +2730,7 @@ function SettingsPanel({
                         (visit) =>
                           visit.company === company &&
                           visit.plant === nextPlant,
-                      )?.lines[0]?.material ?? "RM-100101",
+                      )?.lines[0]?.material ?? state.materialCatalog[0]?.code ?? "RM-100101",
                     );
                   }}
                   label="Tolerance plant"
@@ -2763,9 +2753,9 @@ function SettingsPanel({
                   label="Tolerance material"
                   className="full-width"
                 >
-                  {materials.map((line) => (
-                    <SelectItem key={line.material} value={line.material}>
-                      {line.material} · {line.description}
+                  {materials.map((item) => (
+                    <SelectItem key={item.code} value={item.code}>
+                      {item.code}{"\u00b7"}{item.description}
                     </SelectItem>
                   ))}
                 </Pick>
@@ -2949,6 +2939,7 @@ function SettingsPanel({
         </section>
         <CompanyCodesPanel state={state} run={run} />
         <SitesPanel state={state} run={run} />
+        <MaterialCatalogPanel state={state} run={run} />
         <RecipientsPanel state={state} run={run} />
         <UsersPanel isAdmin={state.actor.isAdmin} />
         <SmtpPanel isAdmin={state.actor.isAdmin} />
@@ -3356,6 +3347,106 @@ function SitesPanel({
                 Add site
               </button>
             </div>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
+    </section>
+  );
+}
+function MaterialCatalogPanel({
+  state,
+  run,
+}: {
+  state: Workspace;
+  run: (input: Input, success: string) => Promise<boolean>;
+}) {
+  const [code, setCode] = useState(""),
+    [description, setDescription] = useState("");
+  const isAdmin = state.actor.isAdmin;
+  return (
+    <section className="settings-card">
+      <Collapsible>
+        <div className="aside-heading">
+          <h2>
+            <Package size={19} /> Material catalog
+          </h2>
+          <CollapsibleTrigger
+            className="icon-button"
+            aria-label="Toggle Material catalog section"
+          >
+            <ChevronDown size={18} />
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent>
+          <p className="small-description">
+            Materials here stay available for tolerance settings even when they
+            are not on a current delivery schedule. Existing schedule materials
+            are added automatically.
+          </p>
+          <div className="supervisor-list">
+            {state.materialCatalog.map((item) => (
+              <div key={item.code}>
+                <div>
+                  <strong>{item.description}</strong>
+                  <p className="mono">{item.code}</p>
+                </div>
+              </div>
+            ))}
+            {!state.materialCatalog.length && (
+              <p className="small-description">No materials have been added.</p>
+            )}
+          </div>
+          {isAdmin && (
+            <div className="add-person">
+              <div className="form-grid">
+                <label>
+                  Material code
+                  <input
+                    value={code}
+                    maxLength={40}
+                    placeholder="e.g. RM-100101"
+                    onChange={(event) =>
+                      setCode(event.target.value.toUpperCase())
+                    }
+                  />
+                </label>
+                <label>
+                  Material description
+                  <input
+                    value={description}
+                    maxLength={150}
+                    placeholder="e.g. Yellow corn"
+                    onChange={(event) => setDescription(event.target.value)}
+                  />
+                </label>
+              </div>
+              <button
+                className="btn btn-outline"
+                disabled={!code.trim() || !description.trim()}
+                onClick={async () => {
+                  if (
+                    await run(
+                      {
+                        kind: "add_material",
+                        materialCode: code.trim(),
+                        materialDescription: description.trim(),
+                      },
+                      "Material added to catalog",
+                    )
+                  ) {
+                    setCode("");
+                    setDescription("");
+                  }
+                }}
+              >
+                Add material
+              </button>
+            </div>
+          )}
+          {!isAdmin && (
+            <p className="capture-note">
+              Only the administrator can manage the material catalog.
+            </p>
           )}
         </CollapsibleContent>
       </Collapsible>

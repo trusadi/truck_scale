@@ -113,7 +113,13 @@ export async function POST(request: Request) {
         events: [{ at: now, text: "Inbound delivery schedule imported from Excel", by: actor.email }],
       });
     }
-    const next = { ...state, visits: [...state.visits, ...visits] };
+    const materialCatalog = new Map(state.materialCatalog.map((item) => [item.code.toUpperCase(), item]));
+    for (const line of visits.flatMap((visit) => visit.lines)) {
+      const code = line.material.trim().toUpperCase();
+      if (code && line.description.trim() && !materialCatalog.has(code))
+        materialCatalog.set(code, { code, description: line.description.trim() });
+    }
+    const next = { ...state, visits: [...state.visits, ...visits], materialCatalog: [...materialCatalog.values()] };
     await saveState(next, input.revision);
     return Response.json({ revision: next.revision, imported: visits.length, products: input.rows.length }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

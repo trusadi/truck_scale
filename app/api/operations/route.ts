@@ -47,6 +47,7 @@ const schema = z
       "reset",
       "add_recipient",
       "remove_recipient",
+      "add_material",
       "add_company",
       "remove_company",
       "add_site",
@@ -64,6 +65,8 @@ const schema = z
     company: z.string().min(1).max(10).regex(/^[A-Za-z0-9]+$/).optional(),
     plant: z.string().min(1).max(10).regex(/^[A-Za-z0-9]+$/).optional(),
     material: z.string().min(1).max(80).optional(),
+    materialCode: z.string().min(1).max(40).regex(/^[A-Za-z0-9][A-Za-z0-9._/-]*$/).optional(),
+    materialDescription: z.string().min(1).max(150).optional(),
     direction: z.enum(["inbound", "outbound"]).optional(),
     rule: z
       .object({
