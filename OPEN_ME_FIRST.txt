@@ -1,0 +1,42 @@
+SMF TRUCK SCALE
+============================================================
+
+WINDOWS — FASTEST METHOD
+
+1. Extract this ZIP.
+2. Install Node.js 22 LTS if needed:
+   https://nodejs.org/en/download
+3. Double-click RUN_ON_WINDOWS.bat
+4. It builds and starts the app, then opens it in your browser.
+
+No account, sign-up, or internet service is required. Data is
+saved locally in a SQLite file (data/app.db) in this folder.
+
+LINUX
+
+Run: docker compose up -d --build
+See README.md for the plain-Node/systemd alternative.
+
+SIGN-IN
+
+Real accounts with roles (administrator / supervisor / operator),
+each scoped to a plant and delivery direction. Seeded accounts and
+their passwords are listed in lib/auth-server.ts (seedUsers) — sign
+in as the administrator first, then use Settings > Manage users to
+add real accounts.
+
+This version includes Configuration Settings for company/plant/material
+tolerances, company-specific process steps, and multiple product weighing
+tickets for both inbound and outbound trucks.
+
+The package also includes a read-only airport-style Truck Status Board,
+which does not require sign-in. Open the Status Board button in the app,
+or add /board to the app's URL.
+
+IMPORTANT
+
+Everyone signed in shares the same workflow data. An administrator can
+reset all sample visits and tolerances from Settings, which affects
+every signed-in user. Do not enter real or confidential data.
+
+For full details, open START_HERE.html or README.md.

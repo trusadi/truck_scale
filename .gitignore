@@ -1,0 +1,12 @@
+node_modules/
+.next/
+.netlify/
+data/*.db*
+backups/
+.env*
+!.env.example
+*.tsbuildinfo
+coverage/
+.DS_Store
+*.log
+node_modules.zip

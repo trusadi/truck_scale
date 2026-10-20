@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Start here — SMF Truck Scale</title>
+    <style>
+      :root { color-scheme: light; font-family: "Segoe UI", Arial, sans-serif; color: #24342f; background: #eef2f0; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 32px 18px 56px; }
+      main { width: min(880px, 100%); margin: auto; background: #fff; border: 1px solid #dce4e0; border-radius: 16px; box-shadow: 0 18px 55px rgba(27, 61, 50, .08); overflow: hidden; }
+      header { padding: 34px clamp(24px, 6vw, 56px); background: #153f38; color: #fff; }
+      .label { display: inline-block; border: 1px solid #8fb1a5; border-radius: 4px; padding: 4px 8px; color: #cfe1d8; font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+      h1 { margin: 18px 0 8px; font-size: clamp(30px, 6vw, 46px); line-height: 1.08; letter-spacing: -.04em; }
+      header p { margin: 0; color: #c2d5cc; font-size: 17px; line-height: 1.6; }
+      .content { padding: 30px clamp(24px, 6vw, 56px) 44px; }
+      .notice { padding: 16px 18px; border: 1px solid #e8d19d; border-radius: 8px; background: #fff8e8; color: #664e1c; line-height: 1.6; }
+      h2 { margin: 32px 0 14px; font-size: 22px; letter-spacing: -.02em; }
+      ol { list-style: none; padding: 0; counter-reset: steps; }
+      li { counter-increment: steps; position: relative; padding: 0 0 24px 52px; min-height: 42px; line-height: 1.6; }
+      li::before { content: counter(steps); position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #e5f0eb; color: #185b4b; font-weight: 750; }
+      li strong { display: block; margin-bottom: 2px; color: #173d34; }
+      code { font-family: Consolas, monospace; background: #eef3f1; border-radius: 4px; padding: 2px 5px; }
+      .answer { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+      .answer div { border: 1px solid #dfe7e3; border-radius: 8px; padding: 16px; }
+      .answer span { display: block; color: #718079; font-size: 13px; }
+      .answer strong { display: block; margin-top: 6px; color: #183f35; }
+      .small { color: #66756e; font-size: 14px; line-height: 1.7; }
+      a { color: #11624f; }
+      @media (max-width: 560px) { body { padding: 0; } main { border: 0; border-radius: 0; } .answer { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="label">SELF-HOSTED · WINDOWS OR LINUX</span>
+        <h1>Run your truck-scale prototype.</h1>
+        <p>No cloud account, subscription, or database server needed — everything runs on your own machine.</p>
+      </header>
+      <div class="content">
+        <div class="notice">
+          <strong>Use fictional data only.</strong> Everyone signed in shares the workflow data. An administrator can reset it from Settings, which affects every signed-in user.
+        </div>
+
+        <h2>Windows: three simple steps</h2>
+        <ol>
+          <li><strong>Extract the ZIP.</strong>Keep the complete folder together.</li>
+          <li><strong>Install Node.js 22 LTS.</strong>Download it from <a href="https://nodejs.org/en/download">nodejs.org</a> if needed.</li>
+          <li><strong>Double-click <code>RUN_ON_WINDOWS.bat</code>.</strong>It installs, builds, starts the server, and opens the app in your browser.</li>
+        </ol>
+
+        <h2>Linux</h2>
+        <p class="small">Run <code>docker compose up -d --build</code> in the extracted folder. See <code>README.md</code> for a plain Node.js + systemd alternative if you'd rather not use Docker.</p>
+
+        <div class="answer">
+          <div><span>Account or cloud service</span><strong>Not required</strong></div>
+          <div><span>Application sign-in</span><strong>Real accounts, seeded on first run</strong></div>
+          <div><span>Data storage</span><strong>Local SQLite file you control</strong></div>
+          <div><span>SAP and weighbridge</span><strong>Sample or simulated</strong></div>
+        </div>
+
+        <h2>Signing in</h2>
+        <p class="small">The app seeds a global administrator account plus a supervisor and operator per plant. See <code>lib/auth-server.ts</code>'s <code>seedUsers()</code> for the exact accounts and passwords, or open <code>README.md</code>. Sign in as the administrator, then use <strong>Settings &gt; Manage users</strong> to create real accounts.</p>
+
+        <h2>Need more detail?</h2>
+        <p class="small">Open <code>README.md</code> for the Linux deployment options, local development setup, test commands, and what's intentionally simulated (SAP orders, the weighbridge).</p>
+      </div>
+    </main>
+  </body>
+</html>

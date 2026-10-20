@@ -1,0 +1,10 @@
+﻿Truck Scale 2 - simple update mode
+
+On your laptop, run from this folder:
+  npm start
+
+The app listens on port 3002 using Next.js watch mode. To update code, copy changed app/ or lib/ files into this folder; changes reload automatically. Restart with Ctrl+C then npm start if needed.
+
+On the other Windows server, run `npm run start:server` to use port 3001.
+
+This copy has its own data/app.db. The original Truck Scale database was not copied. Configure SMTP in Settings if users need email password recovery.
