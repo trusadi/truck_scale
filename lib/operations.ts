@@ -195,7 +195,7 @@ export const flow: Stage[] = [
 ];
 export const kg = (n: number | null | undefined) =>
   n == null
-    ? "—"
+    ? "-"
     : new Intl.NumberFormat("en-PH", { maximumFractionDigits: 2 }).format(n);
 export const clock = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-GB", {
@@ -561,7 +561,7 @@ export function createOperations(date: string, owner: string): Operations {
       text: e.description
         .replace(
           "Delivery appointment loaded from sample schedule",
-          "Scheduled delivery loaded · sample data",
+          "Scheduled delivery loaded - sample data",
         )
         .replaceAll("Q-", "I-"),
       by: "Sample data",
@@ -666,7 +666,7 @@ export function createOperations(date: string, owner: string): Operations {
       events: [
         {
           at: timestamp(360),
-          text: "Outbound delivery scheduled · sample data",
+          text: "Outbound delivery scheduled - sample data",
           by: "Sample data",
         },
       ],
@@ -830,7 +830,7 @@ export function createOperations(date: string, owner: string): Operations {
 export function normalizeOperations(input: Operations): Operations {
   const state = structuredClone(input);
   const previousSchemaVersion = state.schemaVersion ?? 0;
-  state.schemaVersion = 5;
+  state.schemaVersion = 7;
   if (previousSchemaVersion < 3 && !state.visits.some((visit) => visit.id === "RETURN-001"))
     state.visits.push(createSampleReturnVisit(state.sampleDate));
   state.processes ??= {};
@@ -889,11 +889,10 @@ export function normalizeOperations(input: Operations): Operations {
     )
       visit.productTickets[0].result = visit.result;
   }
-  if (previousSchemaVersion < 5) {
+  if (previousSchemaVersion < 7) {
     const imported = new Map<string, Visit[]>();
     for (const visit of state.visits) {
       if (
-        !visit.id.startsWith("IMP-") ||
         visit.direction !== "inbound" ||
         !["scheduled", "waiting"].includes(visit.stage) ||
         visit.readings.length > 0 ||
@@ -902,6 +901,8 @@ export function normalizeOperations(input: Operations): Operations {
       const key = JSON.stringify([
         visit.date,
         visit.plant,
+        visit.direction,
+        visit.lines.some((line) => line.type === "RD") ? "return" : "standard",
         visit.time,
         visit.plate.trim().toUpperCase(),
       ]);
@@ -909,7 +910,7 @@ export function normalizeOperations(input: Operations): Operations {
     }
     const removeIds = new Set<string>();
     for (const group of imported.values()) {
-      if (group.length < 2) continue;
+      if (group.length < 2 || !group.some((visit) => visit.id.startsWith("IMP-"))) continue;
       const ordered = [...group].sort((a, b) =>
         (a.stage === "waiting" ? 0 : 1) - (b.stage === "waiting" ? 0 : 1) ||
         (a.arrivedAt ?? "").localeCompare(b.arrivedAt ?? ""),
@@ -951,7 +952,7 @@ export function notificationFor(
         .filter((s) => matchSupervisor(s, visit))
         .map((s) => s.email),
     ),
-  ];
+  ].slice(0, 3);
   const r = visit.result!;
   const ticketDetails = visit.productTickets.map((item) => {
     const result = item.result!;
@@ -997,8 +998,8 @@ export function notificationFor(
       "Allowed net range: " + kg(r.min) + " to " + kg(r.max) + " kg",
       "Product weighing tickets:",
       ...ticketDetails,
-      "Open the public demo to approve or reject and record a reason.",
-      "Sample ERP data / prototype workflow. No email has been sent.",
+      "Review the delivery and submit your decision using the secure links in this email.",
+      "Approval links expire after 48 hours and can only be used once.",
     ].join("\n"),
     status: !to.length
       ? "no_recipients"
@@ -1172,8 +1173,8 @@ export function applyCommand(
       throw new Error("Enter a name, and select a valid site and direction.");
     if (s.supervisors.some((x) => x.email === email))
       throw new Error("A recipient with this email already exists.");
-    if (s.supervisors.length >= 50)
-      throw new Error("The notification recipient list is full.");
+    if (s.supervisors.length >= 3)
+      throw new Error("A maximum of 3 notification recipients is allowed.");
     s.supervisors.push({
       email,
       name: cmd.name.trim(),
@@ -1574,3 +1575,6 @@ export function driverView(
     })),
   };
 }
+
+
+

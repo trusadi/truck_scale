@@ -234,7 +234,7 @@ function WeightResult({ visit }: { visit: Visit }) {
         </div>
       </div>
       <div className="formula-line">
-        {kg(r.gross)} kg loaded − {kg(r.tare)} kg empty ={" "}
+        {kg(r.gross)} kg loaded - {kg(r.tare)} kg empty ={" "}
         <strong>{kg(r.net)} kg net</strong>
       </div>
       <p className="tolerance-foot">
@@ -243,20 +243,14 @@ function WeightResult({ visit }: { visit: Visit }) {
             Each product ticket is checked independently using its matched
             material, plant, or company rule. Combined expected range:{" "}
             <strong>
-              {kg(r.min)}–{kg(r.max)} kg
+              {kg(r.min)} to {kg(r.max)} kg
             </strong>
             .
           </>
         ) : (
           <>
             Allowed net range:{" "}
-            <strong>
-              {kg(r.min)}–{kg(r.max)} kg
-            </strong>{" "}
-            · {r.rule.appliedLevel ?? "company"} rule v{r.rule.version} · −
-            {r.rule.shortage}
-            {r.rule.unit === "percent" ? "%" : " kg"} / +{r.rule.excess}
-            {r.rule.unit === "percent" ? "%" : " kg"}
+            <strong>{kg(r.min)} to {kg(r.max)} kg</strong>{" "}({r.rule.appliedLevel ?? "company"} rule v{r.rule.version}: -{r.rule.shortage}{r.rule.unit === "percent" ? "%" : " kg"} / +{r.rule.excess}{r.rule.unit === "percent" ? "%" : " kg"})
           </>
         )}
       </p>
@@ -287,7 +281,7 @@ function ProductTicketList({ visit }: { visit: Visit }) {
         <div>
           <h3>Product weighing tickets</h3>
           <p className="small-description">
-            {complete} of {visit.productTickets.length} completed · one ticket
+            {complete} of {visit.productTickets.length} completed  -  one ticket
             per material
           </p>
         </div>
@@ -309,13 +303,13 @@ function ProductTicketList({ visit }: { visit: Visit }) {
               <div className="product-ticket-copy">
                 <strong>{item.line.description}</strong>
                 <p>
-                  {productTicket(visit, item)} · {item.line.material} · {item.line.type}{" "}
+                  {productTicket(visit, item)}  -  {item.line.material}  -  {item.line.type}{" "}
                   {item.line.document}/{item.line.item}
                 </p>
                 {item.result && (
                   <small>
-                    Rule: {item.result.rule.appliedLevel} ·{" "}
-                    {item.result.rule.appliedLabel} · v{item.result.rule.version}
+                    Rule: {item.result.rule.appliedLevel}  - {" "}
+                    {item.result.rule.appliedLabel}  -  v{item.result.rule.version}
                   </small>
                 )}
               </div>
@@ -383,6 +377,7 @@ export default function TruckQueue({ today }: { today: string }) {
     [queueType, setQueueType] = useState<"inbound" | "outbound" | "return">("inbound");
   const [filter, setFilter] = useState("all"),
     [search, setSearch] = useState(""),
+    [passPlateSearch, setPassPlateSearch] = useState(""),
     [orderType, setOrderType] = useState("all");
   const [detail, setDetail] = useState(""),
     [qrId, setQrId] = useState(""),
@@ -508,6 +503,12 @@ export default function TruckQueue({ today }: { today: string }) {
     }
   }
   const qrVisit = state?.visits.find((v) => v.id === qrId);
+  const passSearch = passPlateSearch.trim().toLowerCase();
+  const passVisits = state?.visits.filter((v) =>
+    v.plant === plant &&
+    v.date === date &&
+    (!passSearch || v.plate.toLowerCase().includes(passSearch))
+  ) ?? [];
   const trackingUrl =
     qrVisit && typeof window !== "undefined"
       ? window.location.origin + "/track/" + qrVisit.token
@@ -667,8 +668,8 @@ export default function TruckQueue({ today }: { today: string }) {
           </a>
           {state && (
             <span className="module-label">
-              <UserCircle size={17} /> {state.actor.name} · {state.actor.role}
-              {!state.actor.isAdmin && " · " + state.actor.plant}
+              <UserCircle size={17} /> {state.actor.name}  -  {state.actor.role}
+              {!state.actor.isAdmin && "  -  " + state.actor.plant}
             </span>
           )}
           <button
@@ -684,8 +685,8 @@ export default function TruckQueue({ today }: { today: string }) {
       </header>
       <div className="demo-banner">
         <span>
-          <span className="demo-pill">DEMO</span> Sample SAP orders · Shared
-          saved workflow · Simulated weighbridge
+          <span className="demo-pill">DEMO</span> Sample SAP orders  -  Shared
+          saved workflow  -  Simulated weighbridge
         </span>
         {state?.actor.isAdmin && (
           <button onClick={() => setView("settings")}>
@@ -788,8 +789,10 @@ export default function TruckQueue({ today }: { today: string }) {
               >
                 <RefreshCw size={16} /> Refresh
               </button>
-              {view === "queue" && queueType === "inbound" && state &&
-                (state.actor.isAdmin || state.actor.direction !== "outbound") && (
+              {view === "queue" && state &&
+                (state.actor.isAdmin || state.actor.direction === "both" ||
+                  state.actor.direction === queueType ||
+                  (queueType === "return" && state.actor.direction === "inbound")) && (
                   <>
                     <input
                       ref={importInput}
@@ -810,7 +813,7 @@ export default function TruckQueue({ today }: { today: string }) {
                       }}
                     />
                     <button className="btn btn-outline" onClick={() => importInput.current?.click()} disabled={importBusy}>
-                      <Upload size={16} /> Upload inbound Excel
+                      <Upload size={16} /> Upload {queueType === "return" ? "Return Delivery" : queueType === "outbound" ? "outbound" : "inbound"} Excel
                     </button>
                   </>
                 )}
@@ -842,7 +845,7 @@ export default function TruckQueue({ today }: { today: string }) {
               <p>
                 {loadError
                   ? "The saved workflow could not be loaded."
-                  : "Loading the saved truck scale workflow…"}
+                  : "Loading the saved truck scale workflow..."}
               </p>
             </div>
           ) : (
@@ -885,7 +888,7 @@ export default function TruckQueue({ today }: { today: string }) {
                   )}
                 </div>
                 <span className="clock-label">
-                  <CheckCheck size={15} /> Saved · Refreshes every 15 seconds
+                  <CheckCheck size={15} /> Saved  -  Refreshes every 15 seconds
                 </span>
               </div>
               <TabsContent value={view}>
@@ -956,7 +959,7 @@ export default function TruckQueue({ today }: { today: string }) {
                         </div>
                         <ListOrdered />
                         <small>
-                          {waiting.length} waiting ·{" "}
+                          {waiting.length} waiting  - {" "}
                           {active.filter((v) => v.stage === "held").length} on
                           hold
                         </small>
@@ -993,7 +996,7 @@ export default function TruckQueue({ today }: { today: string }) {
                             <Search size={17} />
                             <input
                               aria-label="Search deliveries"
-                              placeholder="Truck, supplier, material or document…"
+                              placeholder="Truck, supplier, material or document..."
                               value={search}
                               onChange={(e) => setSearch(e.target.value)}
                             />
@@ -1153,7 +1156,7 @@ export default function TruckQueue({ today }: { today: string }) {
                                 <ChevronRight size={18} />
                               </button>
                               <div className="call-origin">
-                                {called.direction} · {called.origin}
+                                {called.direction}  -  {called.origin}
                               </div>
                               <button
                                 className="btn btn-call mt-6"
@@ -1194,7 +1197,7 @@ export default function TruckQueue({ today }: { today: string }) {
                               </h3>
                               <p>
                                 {next
-                                  ? ticket(next) + " · " + next.plate
+                                  ? ticket(next) + "  -  " + next.plate
                                   : "Arriving trucks will appear here."}
                               </p>
                               <button
@@ -1221,7 +1224,7 @@ export default function TruckQueue({ today }: { today: string }) {
                             </span>
                           </div>
                           <p className="small-description">
-                            In order of arrival · {direction}
+                            In order of arrival  -  {direction}
                           </p>
                           <ol className="next-list">
                             {waiting.map((v, i) => (
@@ -1238,7 +1241,7 @@ export default function TruckQueue({ today }: { today: string }) {
                                   <span className="next-truck">
                                     <strong>{v.plate}</strong>
                                     <span>
-                                      {ticket(v)} · {v.lines[0].description}
+                                      {ticket(v)}  -  {v.lines[0].description}
                                     </span>
                                   </span>
                                   <QrCode size={15} />
@@ -1302,12 +1305,12 @@ export default function TruckQueue({ today }: { today: string }) {
                           <div className="weigh-title">
                             <div>
                               <span className="eyebrow">
-                                {ticket(weighing)} · {weighing.lines[0].type}{" "}
+                                {ticket(weighing)}  -  {weighing.lines[0].type}{" "}
                                 {weighing.lines[0].document}
                               </span>
                               <h2>{weighing.plate || "Unassigned truck"}</h2>
                               <p>
-                                {weighing.origin} ·{" "}
+                                {weighing.origin}  - {" "}
                                 {weighing.lines[0].description}
                               </p>
                             </div>
@@ -1418,7 +1421,7 @@ export default function TruckQueue({ today }: { today: string }) {
                                     >
                                       Connected weighbridge
                                       {!state.capabilities.scaleConfigured
-                                        ? " · not connected"
+                                        ? "  -  not connected"
                                         : ""}
                                     </SelectItem>
                                   </Pick>
@@ -1437,7 +1440,7 @@ export default function TruckQueue({ today }: { today: string }) {
                                         Within tolerance (+0.1%)
                                       </SelectItem>
                                       <SelectItem value="shortage">
-                                        Short delivery (−3.5%)
+                                        Short delivery (-3.5%)
                                       </SelectItem>
                                       <SelectItem value="excess">
                                         Excess delivery (+2.5%)
@@ -1512,7 +1515,7 @@ export default function TruckQueue({ today }: { today: string }) {
                                 >
                                   <Scale size={18} />{" "}
                                   {busy
-                                    ? "Saving…"
+                                    ? "Saving..."
                                     : source === "simulator"
                                       ? "Capture simulated weight"
                                       : "Capture weight"}
@@ -1644,7 +1647,7 @@ export default function TruckQueue({ today }: { today: string }) {
                     <aside className="visit-picker">
                       <h2>Delivery exceptions</h2>
                       <p className="small-description">
-                        Inbound and outbound ·{" "}
+                        Inbound and outbound  - {" "}
                         {reviews.filter((v) => v.stage === "approval").length}{" "}
                         awaiting decision
                       </p>
@@ -1663,10 +1666,10 @@ export default function TruckQueue({ today }: { today: string }) {
                           <span>
                             <strong>{v.plate}</strong>
                             <small>
-                              {v.direction} · {v.lines[0].document}
+                              {v.direction}  -  {v.lines[0].document}
                             </small>
                             <em>
-                              {kg(v.result!.variance)} kg ·{" "}
+                              {kg(v.result!.variance)} kg  - {" "}
                               {v.result!.percent.toFixed(2)}%
                             </em>
                           </span>
@@ -1683,7 +1686,7 @@ export default function TruckQueue({ today }: { today: string }) {
                           <div className="weigh-title">
                             <div>
                               <span className="eyebrow">
-                                {review.direction.toUpperCase()} ·{" "}
+                                {review.direction.toUpperCase()}  - {" "}
                                 {review.lines[0].type}{" "}
                                 {review.lines[0].document}
                               </span>
@@ -1795,7 +1798,7 @@ export default function TruckQueue({ today }: { today: string }) {
                                       {n.status === "sent"
                                         ? "Accepted by email gateway"
                                         : n.status === "not_configured"
-                                          ? "Email not sent · connection required"
+                                          ? "Email not sent  -  connection required"
                                           : n.status.replaceAll("_", " ")}
                                     </strong>
                                     <p>
@@ -1840,10 +1843,23 @@ export default function TruckQueue({ today }: { today: string }) {
                         </small>
                       </div>
                     </div>
+                    <div className="table-tools pass-tools">
+                      <label className="search-box">
+                        <Search size={17} />
+                        <input
+                          aria-label="Filter passes by plate number"
+                          placeholder="Filter by plate number"
+                          value={passPlateSearch}
+                          onChange={(event) => setPassPlateSearch(event.target.value)}
+                        />
+                      </label>
+                      <span className="small-description">
+                        {passVisits.length} {passVisits.length === 1 ? "pass" : "passes"}
+                      </span>
+                    </div>
+                    {passVisits.length ? (
                     <div className="pass-grid">
-                      {state.visits
-                        .filter((v) => v.plant === plant && v.date === date)
-                        .map((v) => (
+                      {passVisits.map((v) => (
                           <article className="pass-card" key={v.id}>
                             <div className="aside-heading">
                               <span className="direction-tag">
@@ -1854,7 +1870,7 @@ export default function TruckQueue({ today }: { today: string }) {
                             <h3>{v.plate || "Truck not assigned"}</h3>
                             <p className="mono">{ticket(v)}</p>
                             <span>
-                              {v.lines[0].type} {v.lines[0].document} · {v.time}
+                              {v.lines[0].type} {v.lines[0].document}  -  {v.time}
                             </span>
                             <button
                               className="btn btn-outline full-width"
@@ -1865,6 +1881,11 @@ export default function TruckQueue({ today }: { today: string }) {
                           </article>
                         ))}
                     </div>
+                    ) : (
+                      <EmptyMessage
+                        text={passSearch ? "No passes match that plate number." : "No passes for this site and date."}
+                      />
+                    )}
                   </>
                 )}
                 {view === "settings" && (
@@ -1883,7 +1904,7 @@ export default function TruckQueue({ today }: { today: string }) {
               <Factory size={14} /> San Miguel Foods / Truck Scale
             </span>
             <span>
-              Net cargo = loaded truck − empty truck · All comparisons in kg
+              Net cargo = loaded truck - empty truck  -  All comparisons in kg
             </span>
             <span>Powered by DeloitteAutomate</span>
           </footer>
@@ -1918,7 +1939,7 @@ export default function TruckQueue({ today }: { today: string }) {
                   <div>
                     <dt>Scheduled</dt>
                     <dd>
-                      {selected.date} · {selected.time}
+                      {selected.date}  -  {selected.time}
                     </dd>
                   </div>
                   <div>
@@ -1943,7 +1964,7 @@ export default function TruckQueue({ today }: { today: string }) {
                     </div>
                     <h4>{l.description}</h4>
                     <p>
-                      {l.material} · {kg(l.quantity)} {l.unit}
+                      {l.material}  -  {kg(l.quantity)} {l.unit}
                     </p>
                   </div>
                 ))}
@@ -1961,7 +1982,7 @@ export default function TruckQueue({ today }: { today: string }) {
                     <li key={i}>
                       <time>{clock(e.at)}</time>
                       <span>
-                        {e.text}
+                        {e.text.replace(/(?:\u00c2)?\u00b7/g, " - ")}
                         <small>{e.by}</small>
                       </span>
                     </li>
@@ -2172,9 +2193,9 @@ export default function TruckQueue({ today }: { today: string }) {
       >
         <DialogContent className="checkin-dialog">
           <DialogHeader>
-            <DialogTitle>Review inbound schedule upload</DialogTitle>
+            <DialogTitle>Review {queueType === "return" ? "Return Delivery" : queueType === "outbound" ? "outbound" : "inbound"} schedule upload</DialogTitle>
             <DialogDescription>
-              {importRows?.length ?? 0} product rows for {plant}. Rows with the same date, time, type, document, supplier, plate, and driver become one delivery.
+              {importRows?.length ?? 0} product rows for {plant}. Rows with the same truck plate, date, and time become one appointment.
             </DialogDescription>
           </DialogHeader>
           {importError && <p className="form-error">{importError}</p>}
@@ -2183,7 +2204,7 @@ export default function TruckQueue({ today }: { today: string }) {
               <thead><tr><th>Date / time</th><th>Type / document</th><th>Plate</th><th>Product</th><th>Expected kg</th></tr></thead>
               <tbody>
                 {(importRows ?? []).slice(0, 12).map((row, index) => (
-                  <tr key={index}><td>{row.date} {row.time}</td><td>{row.type} {row.document}</td><td>{row.plate || "Unassigned"}</td><td>{row.material} - {row.product}</td><td>{row.quantity.toLocaleString()}</td></tr>
+                  <tr key={index}><td>{row.date} {row.time}</td><td>{queueType === "outbound" ? "DO" : queueType === "return" ? "RD" : row.type} {row.document}</td><td>{row.plate || "Unassigned"}</td><td>{row.material} - {row.product}</td><td>{row.quantity.toLocaleString()}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -2198,13 +2219,13 @@ export default function TruckQueue({ today }: { today: string }) {
                 const response = await fetch("/api/inbound-import", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ revision: state.revision, plant, rows: importRows }),
+                  body: JSON.stringify({ revision: state.revision, plant, deliveryType: queueType, rows: importRows }),
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || "Unable to import the schedule.");
                 setDate(importRows[0].date);
                 setImportRows(null);
-                toast.success(`${result.imported} deliveries (${result.products} product rows) imported.`);
+                toast.success(`${result.imported} ${queueType === "return" ? "return" : queueType} appointments processed (${result.products} product rows).`);
                 await refresh();
               } catch (error) {
                 setImportError(error instanceof Error ? error.message : "Unable to import the schedule.");
@@ -2278,7 +2299,7 @@ export default function TruckQueue({ today }: { today: string }) {
                       .filter((v) => v.stage === "scheduled")
                       .map((v) => (
                         <SelectItem key={v.id} value={v.id}>
-                          {v.time} · {v.lines[0].document} · {v.origin}
+                          {v.time}  -  {v.lines[0].document}  -  {v.origin}
                         </SelectItem>
                       ))}
                   </Pick>
@@ -2336,7 +2357,7 @@ export default function TruckQueue({ today }: { today: string }) {
                 Cancel
               </button>
               <button className="btn btn-primary" disabled={busy} type="submit">
-                {busy ? "Saving…" : "Confirm"}
+                {busy ? "Saving..." : "Confirm"}
               </button>
             </div>
           </form>
@@ -2353,7 +2374,7 @@ export default function TruckQueue({ today }: { today: string }) {
           <DialogHeader>
             <DialogTitle>Trucker tracking pass</DialogTitle>
             <DialogDescription>
-              {qrVisit?.plate || "Truck not assigned"} · {qrVisit?.direction} ·{" "}
+              {qrVisit?.plate || "Truck not assigned"}  -  {qrVisit?.direction}  - {" "}
               {qrVisit && ticket(qrVisit)}
             </DialogDescription>
           </DialogHeader>
@@ -2517,7 +2538,7 @@ function ReadingHistory({ visit }: { visit: Visit }) {
               </strong>
               {r.label && <p className="reading-label">{r.label}</p>}
               <p>
-                {r.device} · {clock(r.at)} PHT · {r.by}
+                {r.device}  -  {clock(r.at)} PHT  -  {r.by}
               </p>
               <small>{r.reason}</small>
             </div>
@@ -2652,8 +2673,8 @@ function SettingsPanel({
               <div className="settings-card-header-actions">
                 <span className="small-description">
                   {configuredRule
-                    ? level + " rule · v" + configuredRule.version
-                    : "New " + level + " override · inherited values shown"}
+                    ? level + " rule  -  v" + configuredRule.version
+                    : "New " + level + " override  -  inherited values shown"}
                 </span>
                 <CollapsibleTrigger
                   className="icon-button"
@@ -2832,8 +2853,8 @@ function SettingsPanel({
                   <ListOrdered size={19} /> Company process steps
                 </h2>
                 <p className="small-description">
-                  {state.companyCodes.find((item) => item.id === company)?.name} ·{" "}
-                  {direction} · Template v
+                  {state.companyCodes.find((item) => item.id === company)?.name}  - {" "}
+                  {direction}  -  Template v
                   {state.processes[processKey(company, direction)]?.version ?? 1}
                 </p>
               </div>
@@ -2942,6 +2963,7 @@ function SettingsPanel({
         <MaterialCatalogPanel state={state} run={run} />
         <RecipientsPanel state={state} run={run} />
         <UsersPanel isAdmin={state.actor.isAdmin} />
+        <LoginActivityPanel isAdmin={state.actor.isAdmin} />
         <SmtpPanel isAdmin={state.actor.isAdmin} />
         <section className="settings-card">
           <Collapsible>
@@ -3105,9 +3127,9 @@ function SettingsPanel({
               .map((e, i) => (
                 <div className="settings-audit" key={i}>
                   <strong>
-                    {clock(e.at)} · {e.by}
+                    {clock(e.at)}  -  {e.by}
                   </strong>
-                  <p>{e.text}</p>
+                  <p>{e.text.replace(/(?:\u00c2)?\u00b7/g, " - ")}</p>
                 </div>
               ))}
               </CollapsibleContent>
@@ -3192,7 +3214,7 @@ function CompanyCodesPanel({
                   <input
                     value={companyName}
                     maxLength={100}
-                    placeholder="e.g. SMF Poultry · Company 3000"
+                    placeholder="e.g. SMF Poultry  -  Company 3000"
                     onChange={(e) => setCompanyName(e.target.value)}
                   />
                 </label>
@@ -3261,7 +3283,7 @@ function SitesPanel({
                 <div>
                   <strong>{p.label}</strong>
                   <p>
-                    <span className="mono">{p.id}</span> ·{" "}
+                    <span className="mono">{p.id}</span>  - {" "}
                     {state.companyCodes.find((c) => c.id === p.company)?.name ??
                       p.company}
                   </p>
@@ -3304,7 +3326,7 @@ function SitesPanel({
                   <input
                     value={siteLabel}
                     maxLength={100}
-                    placeholder="e.g. Manila · NCR"
+                    placeholder="e.g. Manila  -  NCR"
                     onChange={(e) => setSiteLabel(e.target.value)}
                   />
                 </label>
@@ -3482,8 +3504,8 @@ function RecipientsPanel({
         <CollapsibleContent>
           <p className="small-description">
             Who receives weight-exception e-mail notifications, maintained
-            per site and delivery direction. Separate from the sign-in
-            accounts managed below.
+            per site and delivery direction. Add up to 3 recipients; matching
+            recipients receive the email. Separate from sign-in accounts.
           </p>
           <div className="supervisor-list">
             {state.supervisors.map((s) => (
@@ -3492,7 +3514,7 @@ function RecipientsPanel({
                   <strong>{s.name}</strong>
                   <p>{s.email}</p>
                   <span>
-                    {s.plant === "ALL" ? "All sites" : s.plant} · {s.direction}
+                    {s.plant === "ALL" ? "All sites" : s.plant}  -  {s.direction}
                   </span>
                 </div>
                 {isAdmin && (
@@ -3565,6 +3587,7 @@ function RecipientsPanel({
               <button
                 className="btn btn-outline"
                 disabled={
+                  state.supervisors.length >= 3 ||
                   !name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
                 }
                 onClick={async () => {
@@ -3590,11 +3613,89 @@ function RecipientsPanel({
                 Add recipient
               </button>
               <p className="capture-note">
-                Added recipients are notified for new weight exceptions
-                matching their site and direction; this does not create a
-                sign-in account.
+                {state.supervisors.length} of 3 recipients configured. Added
+                recipients are notified for matching site and direction; this
+                does not create a sign-in account.
               </p>
             </div>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
+    </section>
+  );
+}
+type LoginHistoryEvent = {
+  email: string;
+  name: string;
+  role: Role;
+  plant: PlantScope;
+  direction: string;
+  at: string;
+};
+
+function LoginActivityPanel({ isAdmin }: { isAdmin: boolean }) {
+  const [events, setEvents] = useState<LoginHistoryEvent[] | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!isAdmin) return;
+    let active = true;
+    void fetch("/api/login-history", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load login activity.");
+        if (active) setEvents(data.events);
+      })
+      .catch((reason) => {
+        if (active) setError(reason instanceof Error ? reason.message : "Unable to load login activity.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAdmin]);
+  if (!isAdmin) return null;
+  return (
+    <section className="settings-card">
+      <Collapsible>
+        <div className="aside-heading">
+          <div>
+            <h2><Clock3 size={19} /> Login activity</h2>
+            <p className="small-description">Recent successful sign-ins, newest first.</p>
+          </div>
+          <CollapsibleTrigger className="icon-button" aria-label="Toggle Login activity section">
+            <ChevronDown size={18} />
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent>
+          <p className="small-description">
+            The history keeps the latest 500 successful sign-ins. User ID is the account email.
+          </p>
+          {error ? (
+            <p className="form-error">{error}</p>
+          ) : events === null ? (
+            <p className="small-description">Loading login activity...</p>
+          ) : events.length === 0 ? (
+            <p className="small-description">No successful sign-ins have been recorded yet.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User ID</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Role / site</TableHead>
+                  <TableHead>Login time</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {events.map((event, index) => (
+                  <TableRow key={event.at + event.email + index}>
+                    <TableCell>{event.email}</TableCell>
+                    <TableCell>{event.name}</TableCell>
+                    <TableCell>{event.role} / {event.plant} / {event.direction}</TableCell>
+                    <TableCell>{new Date(event.at).toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CollapsibleContent>
       </Collapsible>
@@ -3714,11 +3815,11 @@ function UsersPanel({ isAdmin }: { isAdmin: boolean }) {
               <div>
                 <strong>
                   {u.name}
-                  {!u.active && " · deactivated"}
+                  {!u.active && "  -  deactivated"}
                 </strong>
                 <p>{u.email}</p>
                 <span>
-                  {u.role} · {u.plant === "ALL" ? "All sites" : u.plant} ·{" "}
+                  {u.role}  -  {u.plant === "ALL" ? "All sites" : u.plant}  - {" "}
                   {u.direction === "return" ? "Return Delivery only" : u.direction === "both" ? "All" : u.direction}
                 </span>
               </div>
@@ -4284,3 +4385,5 @@ function SmtpPanel({ isAdmin }: { isAdmin: boolean }) {
     </section>
   );
 }
+
+
