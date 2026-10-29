@@ -1,4 +1,4 @@
-import { COMPANIES, createDemoTrucks, PLANTS } from "./truck-queue";
+import { COMPANIES, PLANTS } from "./truck-queue";
 
 export type Direction = "inbound" | "outbound";
 export type AccessDirection = Direction | "return" | "both";
@@ -32,7 +32,7 @@ export type ToleranceSelector = {
 };
 export type Reading = {
   kg: number;
-  source: "manual" | "simulator" | "scale";
+  source: "manual" | "scale";
   at: string;
   by: string;
   device: string;
@@ -480,198 +480,9 @@ function aggregateTicketResults(visit: Visit, at: string): Result {
     measuredAt: at,
   };
 }
-function createSampleReturnVisit(date: string): Visit {
-  const line: VisitLine = {
-    type: "RD",
-    document: "RD-6000010050",
-    item: "000010",
-    material: "FG-300101",
-    description: "Returned finished goods",
-    quantity: 8000,
-    unit: "KG",
-  };
-  return {
-    id: "RETURN-001",
-    date,
-    company: companyForPlant("PAG"),
-    plant: "PAG",
-    time: "12:30",
-    direction: "inbound",
-    origin: "SMF - Pagbilao returns",
-    plate: "RDN 4821",
-    driver: "Marco Santos",
-    carrier: "SMF contracted haulier",
-    lines: [line],
-    expectedKg: expectedWeightForLine(line),
-    stage: "scheduled",
-    ticket: null,
-    arrivedAt: null,
-    holdReason: "",
-    readings: [],
-    productTickets: createProductTickets([line]),
-    activeTicket: 0,
-    result: null,
-    decision: null,
-    token: newToken(),
-    tokenExpires: new Date(Date.now() + 7 * 86400000).toISOString(),
-    events: [{ at: new Date().toISOString(), text: "Return delivery scheduled - sample data", by: "Sample data" }],
-  };
-}
-
 export function createOperations(date: string, owner: string): Operations {
   const now = new Date().toISOString();
-  // Keep fictional arrivals in the past so new real-time check-ins join the end of the queue.
-  const timestamp = (minutes: number) =>
-    new Date(new Date(now).getTime() + (minutes - 635) * 60000).toISOString();
-  const visits: Visit[] = createDemoTrucks(date).map((v) => ({
-    id: v.id,
-    date,
-    company: companyForPlant(v.plant),
-    plant: v.plant,
-    time: v.time,
-    direction: "inbound",
-    origin: v.origin,
-    plate: v.plate,
-    driver: v.driver,
-    carrier: v.carrier,
-    lines: v.lines,
-    expectedKg: v.lines.reduce(
-      (sum, line) => sum + expectedWeightForLine(line),
-      0,
-    ),
-    stage:
-      v.status === "sent"
-        ? "first_weigh"
-        : v.status === "held"
-          ? "held"
-          : v.status,
-    ticket: v.ticket,
-    arrivedAt: v.arrivedAt == null ? null : timestamp(v.arrivedAt),
-    holdReason: v.holdReason,
-    heldFrom: v.status === "held" ? "waiting" : undefined,
-    readings: [],
-    productTickets: createProductTickets(v.lines),
-    activeTicket: 0,
-    result: null,
-    decision: null,
-    token: newToken(),
-    tokenExpires: new Date(Date.now() + 7 * 86400000).toISOString(),
-    events: v.events.map((e) => ({
-      at: timestamp(e.time),
-      text: e.description
-        .replace(
-          "Delivery appointment loaded from sample schedule",
-          "Scheduled delivery loaded - sample data",
-        )
-        .replaceAll("Q-", "I-"),
-      by: "Sample data",
-    })),
-  }));
-  visits.push(createSampleReturnVisit(date));
-  const outboundRows: [
-    string,
-    string,
-    string,
-    string,
-    string,
-    number,
-    Stage,
-  ][] = [
-    [
-      "NPL 6201",
-      "Refrigerated chicken",
-      "SMF · Metro Manila distribution",
-      "8000015420",
-      "08:00",
-      12000,
-      "second_weigh",
-    ],
-    [
-      "NRS 1845",
-      "Animal feeds",
-      "SMF · Southern Luzon depot",
-      "8000015426",
-      "09:00",
-      18000,
-      "approval",
-    ],
-    [
-      "NTA 7723",
-      "Animal feeds",
-      "SMF · Batangas depot",
-      "8000015431",
-      "10:00",
-      24000,
-      "waiting",
-    ],
-    [
-      "",
-      "Refrigerated chicken",
-      "SMF · Laguna distribution",
-      "8000015442",
-      "11:00",
-      16000,
-      "scheduled",
-    ],
-  ];
-  outboundRows.forEach((r, i) => {
-    const lines: VisitLine[] = [
-      {
-        type: "DO",
-        document: r[3],
-        item: "000010",
-        material: "FG-30010" + i,
-        description: r[1],
-        quantity: i === 0 ? 7000 : r[5],
-        unit: "KG",
-      },
-    ];
-    if (i === 0)
-      lines.push({
-        type: "DO",
-        document: r[3],
-        item: "000020",
-        material: "FG-300205",
-        description: "Animal feeds",
-        quantity: 5000,
-        unit: "KG",
-      });
-    visits.push({
-      id: "OUT-" + String(i + 1).padStart(3, "0"),
-      date,
-      company: companyForPlant("PAG"),
-      plant: "PAG",
-      direction: "outbound",
-      time: r[4],
-      origin: r[2],
-      plate: r[0],
-      driver: ["Antonio Cruz", "Benjie Flores", "Carlos Diaz", ""][i],
-      carrier: "SMF contracted haulier",
-      lines,
-      expectedKg: lines.reduce(
-        (sum, line) => sum + expectedWeightForLine(line),
-        0,
-      ),
-      stage: r[6],
-      ticket: i < 3 ? i + 1 : null,
-      arrivedAt: i < 3 ? timestamp(460 + i * 35) : null,
-      holdReason: "",
-      readings: [],
-      productTickets: createProductTickets(lines),
-      activeTicket: 0,
-      result: null,
-      decision: null,
-      token: newToken(),
-      tokenExpires: new Date(Date.now() + 7 * 86400000).toISOString(),
-      events: [
-        {
-          at: timestamp(360),
-          text: "Outbound delivery scheduled - sample data",
-          by: "Sample data",
-        },
-      ],
-    });
-  });
+  const visits: Visit[] = [];
   const rules: Record<string, Rule> = {};
   for (const company of COMPANIES)
     for (const direction of ["inbound", "outbound"])
@@ -687,24 +498,6 @@ export function createOperations(date: string, owner: string): Operations {
         excess: 1,
         version: 1,
       };
-  // One plant and one material override make the precedence visible in the demo.
-  rules[
-    toleranceRuleKey({
-      level: "plant",
-      company: "1000",
-      plant: "PAG",
-      direction: "inbound",
-    })
-  ] = { unit: "percent", shortage: 1, excess: 1, version: 1 };
-  rules[
-    toleranceRuleKey({
-      level: "material",
-      company: "1000",
-      plant: "PAG",
-      material: "RM-100205",
-      direction: "inbound",
-    })
-  ] = { unit: "percent", shortage: 0.75, excess: 0.75, version: 1 };
   const processes: Record<string, ProcessTemplate> = {};
   for (const company of COMPANIES)
     for (const direction of ["inbound", "outbound"] as Direction[])
@@ -712,7 +505,7 @@ export function createOperations(date: string, owner: string): Operations {
         company.id,
         direction,
       );
-  const state: Operations = {
+  return {
     schemaVersion: 4,
     revision: 0,
     createdAt: now,
@@ -722,11 +515,11 @@ export function createOperations(date: string, owner: string): Operations {
     processes,
     companyCodes: COMPANIES.map((c) => ({ ...c })),
     sites: PLANTS.map((p) => ({ id: p.id, company: p.company, label: p.label })),
-    materialCatalog: [...new Map(visits.flatMap((visit) => visit.lines).map((line) => [line.material, { code: line.material, description: line.description }])).values()],
+    materialCatalog: [],
     supervisors: [
       {
         email: owner,
-        name: "Demo approval recipient",
+        name: "System Administrator",
         plant: "ALL",
         direction: "both",
       },
@@ -735,104 +528,11 @@ export function createOperations(date: string, owner: string): Operations {
     notifications: [],
     audit: [],
   };
-  // Seed one inbound and one outbound variance for immediate supervisor review.
-  for (const [id, tare, net] of [
-    ["VISIT-002", 10420, 17400],
-    ["OUT-002", 9200, 18450],
-  ] as [string, number, number][]) {
-    const v = visits.find((v) => v.id === id)!;
-    v.readings =
-      v.direction === "inbound"
-        ? [
-            {
-              kg: tare + net,
-              source: "simulator",
-              at: timestamp(500),
-              by: "Sample data",
-              device: "Demo scale",
-              reason: "Seeded sample",
-              label: "Initial loaded truck weight",
-            },
-            {
-              kg: tare,
-              source: "simulator",
-              at: timestamp(620),
-              by: "Sample data",
-              device: "Demo scale",
-              reason: "Seeded sample",
-              ticketId: v.productTickets[0].id,
-              label: "Product 1 · " + v.productTickets[0].line.description,
-            },
-          ]
-        : [
-            {
-              kg: tare,
-              source: "simulator",
-              at: timestamp(505),
-              by: "Sample data",
-              device: "Demo scale",
-              reason: "Seeded sample",
-              label: "Initial empty truck weight",
-            },
-            {
-              kg: tare + net,
-              source: "simulator",
-              at: timestamp(625),
-              by: "Sample data",
-              device: "Demo scale",
-              reason: "Seeded sample",
-              ticketId: v.productTickets[0].id,
-              label: "Product 1 · " + v.productTickets[0].line.description,
-            },
-          ];
-    v.productTickets[0].result = compareWeight(
-      tare + net,
-      tare,
-      v.productTickets[0].expectedKg,
-      resolveTolerance(state, v, v.productTickets[0].line.material),
-      timestamp(625),
-    );
-    v.result = aggregateTicketResults(v, timestamp(625));
-    v.stage = "approval";
-    v.events.push({
-      at: timestamp(625),
-      text: "Product ticket weight outside tolerance · supervisor review required",
-      by: "Sample data",
-    });
-    state.notifications.push(notificationFor(state, v, timestamp(625), false));
-  }
-  const second = visits.find((v) => v.id === "OUT-001")!;
-  second.readings = [
-    {
-      kg: 9400,
-      source: "simulator",
-      at: timestamp(485),
-      by: "Sample data",
-      device: "Demo scale",
-      reason: "Seeded sample",
-      label: "Initial empty truck weight",
-    },
-  ];
-  second.events.push(
-    {
-      at: timestamp(485),
-      text: "Empty truck weighed: 9,400 kg",
-      by: "Sample data",
-    },
-    {
-      at: timestamp(600),
-      text: "Loading complete · return to scale",
-      by: "Sample data",
-    },
-  );
-  return state;
 }
 export function normalizeOperations(input: Operations): Operations {
   const state = structuredClone(input);
   const previousSchemaVersion = state.schemaVersion ?? 0;
   state.schemaVersion = 7;
-  if (previousSchemaVersion < 3 && !state.visits.some((visit) => visit.id === "RETURN-001"))
-    state.visits.push(createSampleReturnVisit(state.sampleDate));
   state.processes ??= {};
   state.rules ??= {};
   (state.companyCodes as typeof state.companyCodes | undefined) ??= COMPANIES.map((c) => ({ ...c }));
@@ -1367,7 +1067,7 @@ export function applyCommand(
         !Number.isFinite(r.kg) ||
         r.kg <= 0 ||
         r.kg > 200000 ||
-        !["manual", "scale", "simulator"].includes(r.source)
+        !["manual", "scale"].includes(r.source)
       )
         throw new Error(
           "Enter a weight greater than zero and no more than 200,000 kg.",

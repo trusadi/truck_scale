@@ -74,7 +74,6 @@ export default function Tracker({ token }: { token: string }) {
         <span>
           <small>TRUCKER TRACKING</small>
         </span>
-        <span className="prototype-tag">DEMO</span>
       </header>
       {error && (
         <div className="service-error" role="alert">

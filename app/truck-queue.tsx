@@ -395,7 +395,7 @@ export default function TruckQueue({ today }: { today: string }) {
       carrier: "",
       reason: "",
     });
-  const [source, setSource] = useState("simulator"),
+  const [source, setSource] = useState("manual"),
     [scenario, setScenario] = useState("within"),
     [weight, setWeight] = useState(""),
     [manualReason, setManualReason] = useState("");
@@ -683,49 +683,6 @@ export default function TruckQueue({ today }: { today: string }) {
           </button>
         </div>
       </header>
-      <div className="demo-banner">
-        <span>
-          <span className="demo-pill">DEMO</span> Sample SAP orders  -  Shared
-          saved workflow  -  Simulated weighbridge
-        </span>
-        {state?.actor.isAdmin && (
-          <button onClick={() => setView("settings")}>
-            <Mail size={14} /> Email preview only <ChevronRight size={14} />
-          </button>
-        )}
-      </div>
-      {state?.actor.isAdmin && (
-        <div className="public-demo-notice" role="note">
-          <ShieldCheck size={19} />
-          <span>
-            <strong>Shared demo workflow.</strong> Changes made here are shared
-            with every signed-in operator. Do not enter real or confidential
-            information.
-          </span>
-          <button
-            className="btn btn-outline"
-            disabled={busy || !state}
-            onClick={async () => {
-              if (
-                !window.confirm(
-                  "Reset all shared demo changes and restore the sample trucks?",
-                )
-              )
-                return;
-              if (await run({ kind: "reset" }, "Sample data reset")) {
-                setPlant("PAG");
-                setDate(today);
-                setView("queue");
-                setDetail("");
-                setReviewId("");
-                setWeighId("");
-              }
-            }}
-          >
-            <RefreshCw size={15} /> Reset sample data
-          </button>
-        </div>
-      )}
       <Tabs
         value={view}
         onValueChange={(value) => {
@@ -1407,9 +1364,6 @@ export default function TruckQueue({ today }: { today: string }) {
                                     label="Weight capture method"
                                     className="full-width"
                                   >
-                                    <SelectItem value="simulator">
-                                      Demo weighbridge simulator
-                                    </SelectItem>
                                     <SelectItem value="manual">
                                       Manual weight entry
                                     </SelectItem>
@@ -1426,33 +1380,6 @@ export default function TruckQueue({ today }: { today: string }) {
                                     </SelectItem>
                                   </Pick>
                                 </label>
-                                {source === "simulator" &&
-                                  weighing.stage === "second_weigh" && (
-                                  <label>
-                                    Demonstration scenario
-                                    <Pick
-                                      value={scenario}
-                                      onChange={setScenario}
-                                      label="Demo weight scenario"
-                                      className="full-width"
-                                    >
-                                      <SelectItem value="within">
-                                        Within tolerance (+0.1%)
-                                      </SelectItem>
-                                      <SelectItem value="shortage">
-                                        Short delivery (-3.5%)
-                                      </SelectItem>
-                                      <SelectItem value="excess">
-                                        Excess delivery (+2.5%)
-                                      </SelectItem>
-                                    </Pick>
-                                    <small>
-                                      The scenario applies only to this product
-                                      ticket. Each material is compared
-                                      separately with its matched tolerance.
-                                    </small>
-                                  </label>
-                                  )}
                                 {source === "manual" && (
                                   <>
                                     <label>
@@ -1514,18 +1441,12 @@ export default function TruckQueue({ today }: { today: string }) {
                                   }}
                                 >
                                   <Scale size={18} />{" "}
-                                  {busy
-                                    ? "Saving..."
-                                    : source === "simulator"
-                                      ? "Capture simulated weight"
-                                      : "Capture weight"}
+                                  {busy ? "Saving..." : "Capture weight"}
                                 </button>
                                 <p className="capture-note">
-                                  {source === "simulator"
-                                    ? "Simulation is clearly recorded in the weighing history. No physical scale is connected."
-                                    : source === "manual"
-                                      ? "The entered value, reason, time and signed-in operator are recorded."
-                                      : "Only a stable, recent reading from the configured scale gateway will be accepted."}
+                                  {source === "manual"
+                                    ? "The entered value, reason, time and signed-in operator are recorded."
+                                    : "Only a stable, recent reading from the configured scale gateway will be accepted."}
                                 </p>
                               </div>
                             </section>
@@ -3101,9 +3022,7 @@ function SettingsPanel({
             </li>
           </ul>
           <p className="capture-note">
-            This build uses sample SAP orders and simulated/manual weights.
-            Live SAP and weighbridge integrations are disabled. Drivers can
-            still open their individual QR passes.
+            Drivers can open their individual QR passes using the link or QR code on each delivery.
           </p>
             </CollapsibleContent>
           </Collapsible>

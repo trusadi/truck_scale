@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 import { canOperate, type Command } from "@/lib/operations";
 import {
   apiError,
@@ -10,7 +10,6 @@ import {
   mutate,
   operatorView,
   requireViewer,
-  resetDemo,
   sendNotification,
 } from "@/lib/operations-server";
 export const runtime = "nodejs";
@@ -44,7 +43,6 @@ const schema = z
       "renew_qr",
       "settings",
       "notify",
-      "reset",
       "add_recipient",
       "remove_recipient",
       "add_material",
@@ -58,9 +56,8 @@ const schema = z
     driver: z.string().max(100).optional(),
     carrier: z.string().max(150).optional(),
     reason: z.string().max(1000).optional(),
-    source: z.enum(["manual", "simulator", "scale"]).optional(),
+    source: z.enum(["manual", "scale"]).optional(),
     weightKg: z.number().positive().max(200000).optional(),
-    scenario: z.enum(["within", "shortage", "excess"]).optional(),
     level: z.enum(["company", "plant", "material"]).optional(),
     company: z.string().min(1).max(10).regex(/^[A-Za-z0-9]+$/).optional(),
     plant: z.string().min(1).max(10).regex(/^[A-Za-z0-9]+$/).optional(),
@@ -122,12 +119,8 @@ export async function POST(request: Request) {
     const raw = await request.text();
     if (raw.length > 30000) throw new HttpError("Request is too large.", 413);
     const body = schema.parse(JSON.parse(raw));
-    if (body.kind === "reset")
-      return Response.json(await resetDemo(body.revision, actor), {
-        headers: { "Cache-Control": "no-store" },
-      });
     if (body.kind === "notify") {
-      await sendNotification(body.id ?? "", body.revision, actor);
+      await sendNotification(body.id ?? "", body.revision, actor, new URL(request.url).origin);
       return Response.json(await operatorView(await loadState(), actor), {
         headers: { "Cache-Control": "no-store" },
       });
@@ -165,3 +158,4 @@ export async function POST(request: Request) {
     return apiError(e);
   }
 }
+

@@ -20,20 +20,18 @@ export function verifyPassword(password: string, stored: string): boolean {
   const actual = scryptSync(password, salt, expected.length);
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
-// Fixed dummy hash so a login for a non-existent email takes the same time as a wrong password.
+// Fixed hash so a login for a non-existent email takes the same time as a wrong password.
 const DUMMY_HASH = hashPassword("not-a-real-password");
 
-// Demo credentials for the seeded RBAC accounts, covering every role/plant combination.
-// Change or remove these before any real (non-demo) deployment.
 function seedUsers(): UserRecord[] {
   const accounts: [string, string, string, Role, PlantScope][] = [
-    ["admin@smf.demo", "Demo Administrator", "Admin#12345", "admin", "ALL"],
-    ["pagbilao.supervisor@smf.demo", "Pagbilao Supervisor", "Supervisor#12345", "supervisor", "PAG"],
-    ["pagbilao.operator@smf.demo", "Pagbilao Operator", "Operator#12345", "operator", "PAG"],
-    ["cebu.supervisor@smf.demo", "Cebu Supervisor", "Supervisor#12345", "supervisor", "CEB"],
-    ["cebu.operator@smf.demo", "Cebu Operator", "Operator#12345", "operator", "CEB"],
-    ["davao.supervisor@smf.demo", "Davao Supervisor", "Supervisor#12345", "supervisor", "DAV"],
-    ["davao.operator@smf.demo", "Davao Operator", "Operator#12345", "operator", "DAV"],
+    ["admin@smf.local", "System Administrator", "Admin#12345", "admin", "ALL"],
+    ["pagbilao.supervisor@smf.local", "Pagbilao Supervisor", "Supervisor#12345", "supervisor", "PAG"],
+    ["pagbilao.operator@smf.local", "Pagbilao Operator", "Operator#12345", "operator", "PAG"],
+    ["cebu.supervisor@smf.local", "Cebu Supervisor", "Supervisor#12345", "supervisor", "CEB"],
+    ["cebu.operator@smf.local", "Cebu Operator", "Operator#12345", "operator", "CEB"],
+    ["davao.supervisor@smf.local", "Davao Supervisor", "Supervisor#12345", "supervisor", "DAV"],
+    ["davao.operator@smf.local", "Davao Operator", "Operator#12345", "operator", "DAV"],
   ];
   return accounts.map(([email, name, password, role, plant]) => ({
     email,
@@ -55,6 +53,50 @@ export async function loadUsers(): Promise<UsersDoc> {
 }
 export async function saveUsers(next: UsersDoc, expectedRevision: number) {
   await replaceRevision(appStore(), "users", next, expectedRevision);
+}
+export type LoginHistoryEvent = {
+  email: string;
+  name: string;
+  role: Role;
+  plant: PlantScope;
+  direction: AccessDirection;
+  at: string;
+};
+type LoginHistoryDocument = { events: LoginHistoryEvent[] };
+const LOGIN_HISTORY_KEY = "login-history";
+const LOGIN_HISTORY_LIMIT = 500;
+
+export async function loadLoginHistory(): Promise<LoginHistoryEvent[]> {
+  const doc = await initializeRecord<LoginHistoryDocument>(appStore(), LOGIN_HISTORY_KEY, () => ({ events: [] }));
+  return Array.isArray(doc.events) ? doc.events : [];
+}
+
+export async function recordLogin(user: UserRecord) {
+  const store = appStore();
+  const event: LoginHistoryEvent = {
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    plant: user.plant,
+    direction: user.direction,
+    at: new Date().toISOString(),
+  };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const current = await store.getWithMetadata(LOGIN_HISTORY_KEY, { type: "json" });
+    if (!current) {
+      const created = await store.setJSON(LOGIN_HISTORY_KEY, { events: [event] }, { onlyIfNew: true });
+      if (created.modified) return;
+      continue;
+    }
+    const history = current.data as LoginHistoryDocument;
+    const updated = await store.setJSON(
+      LOGIN_HISTORY_KEY,
+      { events: [event, ...(Array.isArray(history.events) ? history.events : [])].slice(0, LOGIN_HISTORY_LIMIT) },
+      { onlyIfMatch: current.etag },
+    );
+    if (updated.modified) return;
+  }
+  throw new HttpError("Login history could not be saved. Please try signing in again.", 503);
 }
 export async function verifyLogin(email: string, password: string) {
   const doc = await loadUsers();
