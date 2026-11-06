@@ -610,6 +610,7 @@ export default function TruckQueue({ today }: { today: string }) {
             setQueueType(data.actor.direction as Direction);
           }
         } else if (visit) setPlant(visit.plant);
+        if (data.sites?.length) setNewUser((u) => ({ ...u, plant: u.plant || data.sites[0].id }));
         initialized.current = true;
       }
     } catch (e) {
@@ -3949,7 +3950,7 @@ function UsersPanel({ isAdmin }: { isAdmin: boolean }) {
     name: "",
     password: "",
     role: "operator" as Role,
-    plant: "PAG" as PlantScope,
+    plant: "" as PlantScope,
     direction: "both" as Direction | "return" | "both",
   });
   const [resetTarget, setResetTarget] = useState(""),
@@ -4098,7 +4099,7 @@ function UsersPanel({ isAdmin }: { isAdmin: boolean }) {
                           }
                           label={"Site for " + u.name}
                         >
-                          {PLANTS.map((option) => (
+                          {state.sites.map((option) => (
                             <SelectItem key={option.id} value={option.id}>
                               {option.label}
                             </SelectItem>
@@ -4297,7 +4298,7 @@ function UsersPanel({ isAdmin }: { isAdmin: boolean }) {
                   label="New user site"
                   className="full-width"
                 >
-                  {PLANTS.map((p) => (
+                  {state.sites.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.label}
                     </SelectItem>
@@ -4350,7 +4351,7 @@ function UsersPanel({ isAdmin }: { isAdmin: boolean }) {
                   name: "",
                   password: "",
                   role: "operator",
-                  plant: "PAG",
+                  plant: state?.sites[0]?.id ?? "",
                   direction: "both",
                 });
               }
