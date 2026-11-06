@@ -548,7 +548,7 @@ export default function TruckQueue({ today }: { today: string }) {
     [editError, setEditError] = useState(""),
     [editBusy, setEditBusy] = useState(false);
   const [printDraft, setPrintDraft] = useState<PrintDraft | null>(null);
-  const [plant, setPlant] = useState("PAG"),
+  const [plant, setPlant] = useState(""),
     [date, setDate] = useState(today),
     [direction, setDirection] = useState<Direction>("inbound"),
     [queueType, setQueueType] = useState<"inbound" | "outbound" | "return">("inbound");
