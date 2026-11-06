@@ -15,6 +15,8 @@ export type JsonStore = {
     data: unknown,
     options: { onlyIfNew: true } | { onlyIfMatch: string },
   ): Promise<{ modified: boolean }>;
+  list(options: { prefix: string }): Promise<{ blobs: { key: string }[] }>;
+  delete(key: string): Promise<void>;
 };
 
 let db: Database.Database | null = null;
@@ -39,6 +41,8 @@ export function appStore(): JsonStore {
   const updateStmt = d.prepare(
     "UPDATE blobs SET data = ?, etag = ? WHERE key = ? AND etag = ?",
   );
+  const listStmt = d.prepare("SELECT key FROM blobs WHERE key LIKE ?");
+  const deleteStmt = d.prepare("DELETE FROM blobs WHERE key = ?");
   return {
     getWithMetadata: async (key) => {
       const row = getStmt.get(key) as
@@ -60,6 +64,13 @@ export function appStore(): JsonStore {
       }
       const result = updateStmt.run(json, randomUUID(), key, options.onlyIfMatch);
       return { modified: result.changes > 0 };
+    },
+    list: async ({ prefix }) => {
+      const rows = listStmt.all(prefix + "%") as { key: string }[];
+      return { blobs: rows };
+    },
+    delete: async (key) => {
+      deleteStmt.run(key);
     },
   };
 }
