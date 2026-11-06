@@ -1,6 +1,6 @@
 import type { AccessDirection, Role } from "./operations";
 
-export type PlantScope = "ALL" | "PAG" | "CEB" | "DAV";
+export type PlantScope = string; // "ALL" or any site id (e.g. PAG, CEB, DAV, CF68)
 export type UserRecord = {
   email: string;
   name: string;

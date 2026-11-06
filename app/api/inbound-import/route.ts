@@ -40,7 +40,7 @@ const rowSchema = z.object({
 }).strict();
 const schema = z.object({
   revision: z.number().int().nonnegative(),
-  plant: z.enum(["PAG", "CEB", "DAV"]),
+  plant: z.string().min(1).max(10).regex(/^[A-Za-z0-9]+$/),
   deliveryType: z.enum(["inbound", "outbound", "return"]),
   rows: z.array(rowSchema).min(1).max(500),
 }).strict();

@@ -215,7 +215,7 @@ export function applyUserCommand(doc: UsersDoc, cmd: UserCommand): UsersDoc {
   if (cmd.kind === "update_access") {
     if (!(["admin", "supervisor", "operator"] as string[]).includes(cmd.role))
       throw new HttpError("Select a valid role.");
-    if (!( ["ALL", "PAG", "CEB", "DAV"] as string[]).includes(cmd.plant))
+    if (!cmd.plant || !/^(ALL|[A-Za-z0-9]{1,10})$/.test(cmd.plant))
       throw new HttpError("Select a valid site.");
     if (!( ["both", "inbound", "outbound", "return"] as string[]).includes(cmd.direction))
       throw new HttpError("Select a valid delivery direction.");

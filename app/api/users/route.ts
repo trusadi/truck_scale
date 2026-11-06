@@ -17,7 +17,7 @@ const schema = z.discriminatedUnion("kind", [
       name: z.string().min(1).max(100),
       password: z.string().min(8).max(200),
       role: z.enum(["admin", "supervisor", "operator"]),
-      plant: z.enum(["ALL", "PAG", "CEB", "DAV"]),
+      plant: z.string().min(1).max(10).regex(/^[A-Za-z0-9]+$/),
       direction: z.enum(["both", "inbound", "outbound", "return"]),
     })
     .strict(),
@@ -35,7 +35,7 @@ const schema = z.discriminatedUnion("kind", [
       kind: z.literal("update_access"),
       email,
       role: z.enum(["admin", "supervisor", "operator"]),
-      plant: z.enum(["ALL", "PAG", "CEB", "DAV"]),
+      plant: z.string().min(1).max(10).regex(/^[A-Za-z0-9]+$/),
       direction: z.enum(["both", "inbound", "outbound", "return"]),
     })
     .strict(),
