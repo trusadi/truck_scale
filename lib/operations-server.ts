@@ -63,7 +63,7 @@ export function checkOrigin(request: Request) {
 }
 export const capabilities = async () => ({
   emailConfigured: await mailerConfigured(),
-  scaleConfigured: false,
+  scaleConfigured: true,
   sapConnected: false,
   externalDriverAccess: true,
 });
