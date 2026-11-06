@@ -610,7 +610,6 @@ export default function TruckQueue({ today }: { today: string }) {
             setQueueType(data.actor.direction as Direction);
           }
         } else if (visit) setPlant(visit.plant);
-        if (data.sites?.length) setNewUser((u) => ({ ...u, plant: u.plant || (data.sites[0]?.id ?? "") }));
         initialized.current = true;
       }
     } catch (e) {
@@ -3961,6 +3960,9 @@ function UsersPanel({ isAdmin, sites }: { isAdmin: boolean; sites: { id: string;
     plant: PlantScope;
     direction: Direction | "return" | "both";
   } | null>(null);
+  useEffect(() => {
+    if (sites.length) setNewUser((u) => ({ ...u, plant: u.plant || sites[0].id }));
+  }, [sites]);
   useEffect(() => {
     let active = true;
     (async () => {
