@@ -693,7 +693,7 @@ export function notificationFor(
       visit.lines[0].document,
     body: [
       "A " + visit.direction + " delivery requires your decision.",
-      "Site: " + visit.plant,
+      "Site: " + (state.sites.find((s) => s.id === visit.plant)?.label ?? visit.plant),
       "Truck: " + visit.plate + " / " + ticket(visit),
       "Reference: " +
         visit.lines.map((l) => l.type + " " + l.document).join(", "),
