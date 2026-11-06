@@ -2066,6 +2066,19 @@ export default function TruckQueue({ today }: { today: string }) {
                             >
                               <QrCode size={17} /> Open QR pass
                             </button>
+                            {["cleared", "completed"].includes(v.stage) && v.result && (
+                              <button
+                                className="btn btn-outline full-width"
+                                onClick={() => setPrintDraft({
+                                  visitId: v.id,
+                                  drNo: "",
+                                  invoice: "",
+                                  quantities: v.lines.map(() => ""),
+                                })}
+                              >
+                                <Printer size={17} /> Print Entry/Exit Pass
+                              </button>
+                            )}
                           </article>
                         ))}
                     </div>
