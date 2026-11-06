@@ -2433,7 +2433,7 @@ export default function TruckQueue({ today }: { today: string }) {
           <DialogHeader>
             <DialogTitle>Review {queueType === "return" ? "Return Delivery" : queueType === "outbound" ? "outbound" : "inbound"} schedule upload</DialogTitle>
             <DialogDescription>
-              {importRows?.length ?? 0} product rows for {plant}. Rows with the same truck plate, date, and time become one appointment.
+              {importRows?.length ?? 0} product rows for {state?.sites.find((s) => s.id === plant)?.label ?? plant}. Rows with the same truck plate, date, and time become one appointment.
             </DialogDescription>
           </DialogHeader>
           {importError && <p className="form-error">{importError}</p>}
