@@ -39,6 +39,7 @@ const schema = z
       "capture",
       "approve",
       "reject",
+      "rescale",
       "complete",
       "renew_qr",
       "settings",

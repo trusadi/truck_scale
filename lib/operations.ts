@@ -1172,6 +1172,18 @@ export function applyCommand(
       v.stage = cmd.kind === "approve" ? "cleared" : "rejected";
       text = "Delivery " + v.decision.outcome + ": " + v.decision.reason;
       break;
+    case "rescale":
+      allowed("rejected");
+      if (!canApprove(actor, v))
+        throw new Error("Only an authorized supervisor can send a rejected delivery back for re-scaling.");
+      v.readings = [];
+      v.result = null;
+      v.decision = null;
+      v.activeTicket = 0;
+      v.productTickets = v.productTickets.map((pt) => ({ ...pt, result: null }));
+      v.stage = "first_weigh";
+      text = "Sent back to weighbridge for re-scaling";
+      break;
     case "complete":
       allowed("cleared");
       v.stage = "completed";

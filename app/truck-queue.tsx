@@ -1868,6 +1868,28 @@ export default function TruckQueue({ today }: { today: string }) {
                           </div>
                           <ProductTicketList visit={review} />
                           <WeightResult visit={review} />
+                          {review.stage === "rejected" && canApprove(state.actor, review) && (
+                            <section className="decision-panel">
+                              <div className="aside-heading">
+                                <h3><RefreshCw size={19} /> Re-scale</h3>
+                              </div>
+                              <p className="small-description">
+                                Send the truck back to the weighbridge for a new weighing. All previous readings and the rejection decision will be cleared.
+                              </p>
+                              <button
+                                className="btn btn-outline"
+                                disabled={busy}
+                                onClick={() =>
+                                  run(
+                                    { kind: "rescale", id: review.id },
+                                    "Sent back to weighbridge for re-scaling",
+                                  )
+                                }
+                              >
+                                <RefreshCw size={17} /> Re-scale this delivery
+                              </button>
+                            </section>
+                          )}
                           {review.stage === "approval" && (
                             <section className="decision-panel">
                               <div className="aside-heading">
