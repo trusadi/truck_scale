@@ -28,7 +28,7 @@ export type ToleranceSelector = {
   company: string;
   plant?: string;
   material?: string;
-  direction: Direction;
+  direction: Direction | "return";
 };
 export type Reading = {
   kg: number;
@@ -219,7 +219,7 @@ export const companyForPlant = (plant: string) =>
   PLANTS.find((item) => item.id === plant)?.company ?? COMPANIES[0].id;
 export const expectedWeightForLine = (line: VisitLine) =>
   line.unit === "KG" ? line.quantity : line.quantity * 0.15;
-export const processKey = (company: string, direction: Direction) =>
+export const processKey = (company: string, direction: Direction | "return") =>
   company + ":" + direction;
 export function toleranceRuleKey(selector: ToleranceSelector) {
   if (selector.level === "company")

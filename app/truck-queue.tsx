@@ -2813,7 +2813,7 @@ function SettingsPanel({
     [configPlant, setConfigPlant] = useState(defaultPlant),
     [level, setLevel] = useState<ToleranceLevel>("company"),
     [material, setMaterial] = useState(firstMaterial),
-    [direction, setDirection] = useState<Direction>("inbound");
+    [direction, setDirection] = useState<Direction | "return">("inbound");
   const selectorKey = toleranceRuleKey({
     level,
     company,
@@ -2956,12 +2956,13 @@ function SettingsPanel({
               Delivery direction
               <Pick
                 value={direction}
-                onChange={(d) => setDirection(d as Direction)}
+                onChange={(d) => setDirection(d as Direction | "return")}
                 label="Tolerance direction"
                 className="full-width"
               >
                 <SelectItem value="inbound">Inbound</SelectItem>
                 <SelectItem value="outbound">Outbound</SelectItem>
+                <SelectItem value="return">Return</SelectItem>
               </Pick>
             </label>
             <label>
