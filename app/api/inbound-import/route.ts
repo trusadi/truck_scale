@@ -98,7 +98,7 @@ export async function POST(request: Request) {
         uploadedItems.add(key);
         return false;
       }))
-        throw new HttpError(`Delivery ${first.document} already exists (duplicate document/item) at ${input.plant}. No rows were imported.`);
+        throw new HttpError(`Delivery ${first.document} already exists (duplicate document/item) at ${site.label ?? input.plant}. No rows were imported.`);
       const lines: VisitLine[] = rows.map((row) => ({
         type: input.deliveryType === "outbound" ? "DO" : input.deliveryType === "return" ? "RD" : row.type,
         document: row.document,
