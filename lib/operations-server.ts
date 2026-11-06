@@ -156,7 +156,7 @@ export async function getReading(
     source?: string;
     weightKg?: number;
     reason?: string;
-    scenario?: string;
+    deviceId?: string;
   },
   actor: Actor,
 ): Promise<Reading> {
@@ -170,11 +170,16 @@ export async function getReading(
       by: actor.email,
       reason: (body.reason ?? "").trim(),
     };
-  if (body.source === "scale")
-    throw new HttpError(
-      "The weighbridge is not connected.",
-      503,
-    );
+  if (body.source === "scale") {
+    const { getScaleReading, getLatestScaleReading, clearScaleReading, isStale } = await import("./scale-bridge");
+    const reading = body.deviceId
+      ? await getScaleReading(body.deviceId)
+      : await getLatestScaleReading();
+    if (!reading) throw new HttpError("No weight reading from the weighbridge yet.", 503);
+    if (isStale(reading)) throw new HttpError("The weighbridge reading is too old. Wait for a fresh reading.", 503);
+    await clearScaleReading(reading.deviceId);
+    return { kg: Math.round(reading.weightKg * 100) / 100, at, source: "scale" as const, device: reading.deviceId, by: actor.email, reason: "" };
+  }
   throw new HttpError("Select a weight capture method.");
 }
 export async function mutate(command: Command, actor: Actor, revision: number) {

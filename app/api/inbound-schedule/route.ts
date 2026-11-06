@@ -23,7 +23,13 @@ const schema = z.discriminatedUnion("kind", [
     time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
     supplier: z.string().trim().max(150),
     plate: z.string().trim().max(20),
+    truckType: z.string().trim().max(50).default(""),
+    hauler: z.string().trim().max(150).default(""),
     driver: z.string().trim().max(100),
+    driverId: z.string().trim().max(50).default(""),
+    helperName: z.string().trim().max(100).default(""),
+    helperId: z.string().trim().max(50).default(""),
+    contact: z.string().trim().max(30).default(""),
     lines: z.array(lineSchema).min(1).max(100),
   }).strict(),
   z.object({
@@ -67,9 +73,14 @@ export async function POST(request: Request) {
       target.date = cmd.date;
       target.time = cmd.time;
       target.origin = cmd.supplier || "Inbound supplier";
-      target.carrier = cmd.supplier;
+      target.carrier = cmd.hauler || cmd.supplier;
       target.plate = cmd.plate.toUpperCase();
+      target.truckType = cmd.truckType || undefined;
       target.driver = cmd.driver;
+      target.driverId = cmd.driverId || undefined;
+      target.helperName = cmd.helperName || undefined;
+      target.helperId = cmd.helperId || undefined;
+      target.contact = cmd.contact || undefined;
       target.lines = cmd.lines as VisitLine[];
       target.expectedKg = target.lines.reduce((sum, line) => sum + line.quantity, 0);
       target.productTickets = createProductTickets(target.lines);

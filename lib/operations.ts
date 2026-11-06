@@ -99,7 +99,12 @@ export type Visit = {
   direction: Direction;
   origin: string;
   plate: string;
+  truckType?: string;
   driver: string;
+  driverId?: string;
+  helperName?: string;
+  helperId?: string;
+  contact?: string;
   carrier: string;
   lines: VisitLine[];
   expectedKg: number | null;
@@ -873,8 +878,9 @@ export function applyCommand(
       throw new Error("Enter a name, and select a valid site and direction.");
     if (s.supervisors.some((x) => x.email === email))
       throw new Error("A recipient with this email already exists.");
-    if (s.supervisors.length >= 3)
-      throw new Error("A maximum of 3 notification recipients is allowed.");
+    const siteCount = s.supervisors.filter((x) => x.plant === cmd.recipientPlant).length;
+    if (siteCount >= 3)
+      throw new Error("A maximum of 3 notification recipients per site is allowed.");
     s.supervisors.push({
       email,
       name: cmd.name.trim(),

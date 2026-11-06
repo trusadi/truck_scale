@@ -7,7 +7,13 @@ export type InboundImportRow = {
   document: string;
   supplier: string;
   plate: string;
+  truckType: string;
+  hauler: string;
   driver: string;
+  driverId: string;
+  helperName: string;
+  helperId: string;
+  contact: string;
   item: string;
   material: string;
   product: string;
@@ -110,19 +116,26 @@ export async function parseInboundWorkbook(file: File): Promise<InboundImportRow
   const indexes = new Map([...header].map(([column, value]) => [value.toLowerCase().replace(/[^a-z]/g, ""), Number(column)]));
   const find = (...names: string[]) => names.map((name) => indexes.get(name)).find((index) => index !== undefined);
   const columns = {
-    date: find("date"), time: find("time"), type: find("inbtype", "inboundtype"), document: find("postoshipmentno", "postoshipmentnumber"),
-    supplier: find("suppliercode"), plate: find("truckplate"), driver: find("drivername"), item: find("item"), material: find("productcode"),
+    date: find("date"), time: find("time"), type: find("inbtype", "inboundtype", "processtype"), document: find("postoshipmentno", "postoshipmentnumber", "postodo"),
+    supplier: find("suppliercode"), plate: find("truckplate"), truckType: find("trucktype"),
+    hauler: find("haulersname", "haulername", "hauler"), driver: find("drivername"),
+    driverId: find("driverid"), helperName: find("helpername"), helperId: find("helperid"),
+    contact: find("contact", "contactno"), item: find("item"), material: find("productcode"),
     product: find("product"), quantity: find("expectednetcargo"), unit: find("uom"),
   };
-  if (Object.values(columns).some((index) => index === undefined)) throw new Error("The workbook headers do not match the inbound upload template.");
+  const required = ["date", "time", "type", "document", "plate", "driver", "item", "material", "product", "quantity", "unit"] as const;
+  if (required.some((key) => columns[key] === undefined)) throw new Error("The workbook headers do not match the Truck Scale upload template.");
   const get = (row: Map<string, string>, index: number | undefined) => index === undefined ? "" : row.get(String(index)) ?? "";
   const result: InboundImportRow[] = [];
   for (const row of parsed.slice(headerIndex + 1)) {
     const hasDeliveryData = [columns.date, columns.time, columns.document, columns.supplier, columns.plate, columns.driver, columns.item, columns.material, columns.product, columns.quantity, columns.unit]
       .some((index) => get(row, index).trim() !== "");
     if (!hasDeliveryData) continue;
-    const rawType = get(row, columns.type).toUpperCase();
-    const type = rawType === "PO" ? "PO" : ["STO", "SHIP", "SHIPMENT"].includes(rawType) ? "STO" : null;
+    const rawType = get(row, columns.type).toUpperCase().replace(/[^A-Z]/g, "");
+    const type = rawType === "PO" ? "PO" : [
+      "STO", "SHIP", "SHIPMENT", "DO", "DELIVERY", "OUTBOUND",
+      "RD", "RETURN", "RETURNDELIVERY",
+    ].includes(rawType) ? "STO" : null;
     const quantity = Number(get(row, columns.quantity).replace(/,/g, ""));
     const date = excelDate(get(row, columns.date));
     const time = excelTime(get(row, columns.time));
@@ -134,7 +147,10 @@ export async function parseInboundWorkbook(file: File): Promise<InboundImportRow
     const unit = get(row, columns.unit).toUpperCase();
     if (!type || !date || !time || !document || !item || !material || !product || !Number.isFinite(quantity) || quantity <= 0 || !["KG", "KGS", "KILOGRAM", "KILOGRAMS"].includes(unit))
       throw new Error(`Invalid data on Excel row ${headerIndex + result.length + 2}. Check type, date, time, document, item, product, expected cargo, and UoM (KG).`);
-    result.push({ date, time, type, document, supplier: get(row, columns.supplier), plate: get(row, columns.plate), driver: get(row, columns.driver), item, material, product, quantity, unit: "KG" });
+    result.push({ date, time, type, document, supplier: get(row, columns.supplier), plate: get(row, columns.plate),
+      truckType: get(row, columns.truckType), hauler: get(row, columns.hauler), driver: get(row, columns.driver),
+      driverId: get(row, columns.driverId), helperName: get(row, columns.helperName), helperId: get(row, columns.helperId),
+      contact: get(row, columns.contact), item, material, product, quantity, unit: "KG" });
     if (result.length > 500) throw new Error("A single upload can contain up to 500 product rows.");
   }
   if (!result.length) throw new Error("The workbook contains no delivery rows.");

@@ -58,6 +58,7 @@ const schema = z
     reason: z.string().max(1000).optional(),
     source: z.enum(["manual", "scale"]).optional(),
     weightKg: z.number().positive().max(200000).optional(),
+    deviceId: z.string().min(1).max(100).optional(),
     level: z.enum(["company", "plant", "material"]).optional(),
     company: z.string().min(1).max(10).regex(/^[A-Za-z0-9]+$/).optional(),
     plant: z.string().min(1).max(10).regex(/^[A-Za-z0-9]+$/).optional(),

@@ -76,6 +76,8 @@ export async function sendMail(message: { to: string; subject: string; text: str
     host: cfg.host,
     port: cfg.port,
     secure: cfg.secure,
+    // ignoreTLS prevents STARTTLS on plain port 25 relays that don't support TLS
+    ignoreTLS: !cfg.secure,
     auth: { user: cfg.user, pass: cfg.password },
     tls: cfg.allowSelfSigned ? { rejectUnauthorized: false } : undefined,
   });

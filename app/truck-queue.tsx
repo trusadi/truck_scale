@@ -24,6 +24,7 @@ import {
   Monitor,
   Package,
   Pause,
+  Printer,
   QrCode,
   RefreshCw,
   Scale,
@@ -124,7 +125,13 @@ type InboundEditDraft = {
   time: string;
   supplier: string;
   plate: string;
+  truckType: string;
+  hauler: string;
   driver: string;
+  driverId: string;
+  helperName: string;
+  helperId: string;
+  contact: string;
   lines: VisitLine[];
 };
 const statusClass = (v: Visit) =>
@@ -359,6 +366,175 @@ function ProcessSteps({ state, visit }: { state: Workspace; visit: Visit }) {
   );
 }
 
+type PrintDraft = {
+  visitId: string;
+  drNo: string;
+  invoice: string;
+  quantities: string[];
+};
+
+function generateEntryExitPassHtml(
+  visit: Visit,
+  draft: PrintDraft,
+  siteLabel: string,
+  origin: string,
+): string {
+  const esc = (s: string) =>
+    (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const manilaStr = (iso: string) =>
+    new Date(new Date(iso).toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+  const fmtDate = (iso: string) => {
+    const d = manilaStr(iso);
+    return `${String(d.getDate()).padStart(2,"0")}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getFullYear()).slice(-2)}`;
+  };
+  const fmtTime = (iso: string) => {
+    const d = manilaStr(iso);
+    return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  };
+  const fmtDT = (iso: string) => `${fmtDate(iso)} ${fmtTime(iso)}`;
+  const fmtKg = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " KG";
+  const now = new Date().toISOString();
+
+  const grossReading = visit.direction === "inbound" ? visit.readings[0] : visit.readings.at(-1);
+  const tareReading  = visit.direction === "inbound" ? visit.readings.at(-1) : visit.readings[0];
+
+  const docTypes = [...new Set(visit.lines.map(l => l.type))].join("/");
+  const poStoNo  = [...new Set(visit.lines.map(l => l.document))].join(", ");
+  const fromLabel = visit.direction === "inbound" ? (visit.origin || "") : siteLabel;
+  const toLabel   = visit.direction === "inbound" ? siteLabel : "";
+  const processType = visit.direction === "inbound" ? "INBOUND" : visit.direction === "outbound" ? "OUTBOUND" : "RETURN";
+  const transNo  = visit.ticket != null
+    ? (visit.direction === "inbound" ? "I-" : "O-") + String(visit.ticket).padStart(3, "0")
+    : "";
+
+  let disposition = "";
+  if (visit.result) {
+    if (visit.decision?.outcome === "approved" || visit.result.within) disposition = "CLEARED";
+    else if (visit.result.variance < 0) disposition = "UNDERWEIGHT";
+    else disposition = "OVERWEIGHT";
+  }
+  const operatorName = visit.events.at(-1)?.by ?? "";
+
+  const headerHtml = `
+<div class="hdr">
+  <div class="logo"><img src="${origin}/sanmiguel-logo.png" alt="San Miguel Foods"/></div>
+  <div class="ttl"><h1>ENTRY / EXIT PASS</h1><p>${esc(siteLabel)}</p></div>
+  <div class="pdate"><strong>DATE:</strong> ${fmtDate(now)}<br><strong>TIME:</strong> ${fmtTime(now)}:00</div>
+</div>
+<div class="box">
+  <table class="it">
+    <tr><td class="lb">PLATE NUMBER:</td><td class="vl">${esc(visit.plate)}</td><td class="lb">TRANSACTION NO.:</td><td>${esc(transNo)}</td></tr>
+    <tr><td class="lb">DRIVER'S NAME:</td><td class="vl">${esc(visit.driver)}</td><td class="lb">PROCESS TYPE:</td><td>${esc(processType)}</td></tr>
+    <tr><td class="lb">CONTACT:</td><td class="vl">${esc(visit.contact ?? "")}</td><td class="lb">DOCUMENT TYPE:</td><td>${esc(docTypes)}</td></tr>
+    <tr><td class="lb">HAULER:</td><td class="vl">${esc(visit.carrier ?? "")}</td><td class="lb">FROM:</td><td>${esc(fromLabel)}</td></tr>
+    <tr><td class="lb">TRUCK TYPE:</td><td class="vl">${esc(visit.truckType ?? "")}</td><td class="lb">TO:</td><td>${esc(toLabel)}</td></tr>
+  </table>
+</div>
+<div class="box">
+  <table class="dt">
+    <tr><td class="lb">PO/STO NO.:</td><td style="width:35%">${esc(poStoNo)}</td><td class="lb" style="width:12%">DR NO.:</td><td>${esc(draft.drNo)}</td></tr>
+    <tr><td class="lb">INVOICE:</td><td colspan="3">${esc(draft.invoice)}</td></tr>
+  </table>
+</div>`;
+
+  const footerHtml = `
+<div class="box">
+  <table class="dt">
+    <tr><td class="lb" style="width:30%;text-decoration:underline">OPERATOR NAME:</td><td>${esc(operatorName)}</td></tr>
+    <tr><td class="lb" style="text-decoration:underline">DISPOSITION:</td><td><strong>${esc(disposition)}</strong></td></tr>
+    <tr><td class="lb" style="text-decoration:underline">REMARKS:</td><td>&nbsp;</td></tr>
+  </table>
+</div>
+<div class="sig-row">
+  <div class="sig-box">TRUCKSCALE OPERATOR/SHIPPING MANAGER SIGNATURE</div>
+  <div class="sig-box">CERTIFIED TRUE &amp; CORRECT: DRIVER/HELPER SIGNATURE</div>
+</div>`;
+
+  const pages = visit.productTickets.map((tkt, i) => {
+    const qty = draft.quantities[i] || "";
+    const r = tkt.result ?? visit.result;
+    const gross    = r ? fmtKg(r.gross) : "";
+    const tare     = r ? fmtKg(r.tare)  : "";
+    const net      = r ? fmtKg(r.net)   : "";
+    const expected = fmtKg(tkt.line.quantity);
+    const diff     = r ? (r.variance >= 0 ? "+" : "") + r.variance.toFixed(2) : "";
+    const grossAt  = grossReading ? fmtDT(grossReading.at) : "";
+    const tareAt   = tareReading  ? fmtDT(tareReading.at)  : "";
+    const tableHtml = `
+<table class="items">
+  <thead>
+    <tr>
+      <th style="width:30%">ITEM DESCRIPTION</th>
+      <th style="width:11%">QUANTITY</th>
+      <th style="width:16%">WEIGHT</th>
+      <th style="width:19%">TRUCKSCALE WEIGHT</th>
+      <th style="width:24%">DATE AND TIME</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan="5" style="vertical-align:middle;font-weight:bold">${esc(tkt.line.description)}</td>
+      <td rowspan="5" style="vertical-align:middle;text-align:center">${esc(qty)}</td>
+      <td class="wlbl">GROSS</td><td class="num">${gross}</td><td class="ctr">${grossAt}</td>
+    </tr>
+    <tr><td class="wlbl">TARE</td><td class="num">${tare}</td><td class="ctr">${tareAt}</td></tr>
+    <tr><td class="wlbl">NET</td><td class="num">${net}</td><td class="ctr">${tareAt}</td></tr>
+    <tr><td class="wlbl">NET OF PACKAGING</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr>
+      <td class="wlbl">EXPECTED WEIGHT</td>
+      <td class="num">${expected}</td>
+      <td style="text-align:right;font-weight:bold">${diff ? "DIFFERENCE: " + diff : ""}</td>
+    </tr>
+  </tbody>
+</table>`;
+    return `<div class="page">${headerHtml}${tableHtml}${footerHtml}</div>`;
+  }).join("");
+
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<title>Entry/Exit Pass - ${esc(visit.plate)}</title>
+<style>
+@page{size:A5 portrait;margin:4mm 5mm}
+@media print{.noprint{display:none!important}.page{page-break-after:always}.page:last-child{page-break-after:avoid}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#000;background:#fff}
+.page{margin-bottom:16px;padding-bottom:4px;border-bottom:2px dashed #ccc}
+.page:last-child{border-bottom:none;margin-bottom:0}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding-bottom:4px;margin-bottom:4px;border-bottom:1.5pt solid #000}
+.logo img{width:60px;height:auto}
+.ttl{text-align:center;flex:1}
+.ttl h1{font-size:11pt;font-weight:bold;letter-spacing:1px}
+.ttl p{font-size:7.5pt}
+.pdate{text-align:right;font-size:7.5pt;line-height:1.6}
+.pdate strong{display:inline-block;width:36px}
+.box{border:.75pt solid #000;padding:3px 4px;margin-bottom:3px}
+.it{width:100%;border-collapse:collapse}
+.it td{padding:1px 2px;font-size:7.5pt;vertical-align:top}
+.it .lb{font-weight:bold;white-space:nowrap;width:22%;text-decoration:underline}
+.it .vl{width:28%}
+.dt{width:100%;border-collapse:collapse}
+.dt td{padding:1px 2px;font-size:7.5pt}
+.dt .lb{font-weight:bold;width:18%}
+table.items{width:100%;border-collapse:collapse;margin-bottom:3px;font-size:7.5pt}
+table.items th,table.items td{border:.75pt solid #000;padding:2px 3px}
+table.items th{background:#e8e8e8;font-weight:bold;text-align:center;font-size:7pt}
+.wlbl{font-weight:bold}
+.num{text-align:right}
+.ctr{text-align:center}
+.sig-row{display:flex;justify-content:space-between;gap:10px;margin-top:12px}
+.sig-box{flex:1;border-top:.75pt solid #000;padding-top:2px;text-align:center;font-size:6.5pt;font-weight:bold}
+.noprint{text-align:center;padding:10px;display:flex;justify-content:center;gap:10px}
+.noprint button{padding:6px 20px;font-size:10pt;cursor:pointer;border:1px solid #aaa;border-radius:4px}
+.noprint .primary{background:#1a6e3c;color:#fff;border-color:#1a6e3c}
+</style></head><body>
+<div class="noprint">
+  <button class="primary" onclick="window.print()">🖨 Print</button>
+  <button onclick="window.close()">✕ Close</button>
+</div>
+${pages}
+</body></html>`;
+}
+
 export default function TruckQueue({ today }: { today: string }) {
   const [state, setState] = useState<Workspace | null>(null),
     [loadError, setLoadError] = useState("");
@@ -371,6 +547,7 @@ export default function TruckQueue({ today }: { today: string }) {
   const [editDraft, setEditDraft] = useState<InboundEditDraft | null>(null),
     [editError, setEditError] = useState(""),
     [editBusy, setEditBusy] = useState(false);
+  const [printDraft, setPrintDraft] = useState<PrintDraft | null>(null);
   const [plant, setPlant] = useState("PAG"),
     [date, setDate] = useState(today),
     [direction, setDirection] = useState<Direction>("inbound"),
@@ -396,10 +573,12 @@ export default function TruckQueue({ today }: { today: string }) {
       reason: "",
     });
   const [source, setSource] = useState("manual"),
-    [scenario, setScenario] = useState("within"),
     [weight, setWeight] = useState(""),
     [manualReason, setManualReason] = useState("");
   const [decisionReason, setDecisionReason] = useState("");
+  type ScaleDeviceReading = { weightKg: number; unit: string; deviceId: string; receivedAt: string; stale: boolean };
+  const [scaleReadings, setScaleReadings] = useState<ScaleDeviceReading[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState("");
   const initialized = useRef(false),
     busyRef = useRef(false);
   const refresh = useCallback(async () => {
@@ -465,6 +644,28 @@ export default function TruckQueue({ today }: { today: string }) {
     if (view === "settings" && !state.actor.isAdmin) setView("queue");
     if (view === "approvals" && state.actor.role === "operator") setView("queue");
   }, [state, view]);
+
+  // Poll scale readings while "Connected weighbridge" is selected
+  useEffect(() => {
+    if (source !== "scale" || !state?.capabilities.scaleConfigured) return;
+    async function poll() {
+      try {
+        const res = await fetch("/api/scale-reading", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const readings: ScaleDeviceReading[] = data.readings ?? [];
+        setScaleReadings(readings);
+        // Auto-select if only one device; keep existing selection if still valid
+        setSelectedDevice((prev) => {
+          if (readings.some((r) => r.deviceId === prev)) return prev;
+          return readings.length === 1 ? readings[0].deviceId : "";
+        });
+      } catch {}
+    }
+    void poll();
+    const t = setInterval(poll, 3000);
+    return () => clearInterval(t);
+  }, [source, state?.capabilities.scaleConfigured]);
   async function run(input: Input, success: string) {
     if (!state || busyRef.current) return false;
     setBusy(true);
@@ -1410,12 +1611,42 @@ export default function TruckQueue({ today }: { today: string }) {
                                     </label>
                                   </>
                                 )}
+                                {source === "scale" && (
+                                  <div className="scale-device-list">
+                                    {scaleReadings.length === 0 ? (
+                                      <p className="capture-note">Waiting for weighbridge reading…</p>
+                                    ) : (
+                                      scaleReadings.map((r) => (
+                                        <label
+                                          key={r.deviceId}
+                                          className={`scale-device-option${selectedDevice === r.deviceId ? " selected" : ""}${r.stale ? " stale" : ""}`}
+                                        >
+                                          <input
+                                            type="radio"
+                                            name="scaleDevice"
+                                            value={r.deviceId}
+                                            checked={selectedDevice === r.deviceId}
+                                            onChange={() => setSelectedDevice(r.deviceId)}
+                                          />
+                                          <span className="device-id">{r.deviceId}</span>
+                                          <span className="device-weight">
+                                            {r.weightKg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                                          </span>
+                                          <span className="device-age">
+                                            {r.stale ? "⚠ stale" : `${Math.round((Date.now() - Date.parse(r.receivedAt)) / 1000)}s ago`}
+                                          </span>
+                                        </label>
+                                      ))
+                                    )}
+                                  </div>
+                                )}
                                 <button
                                   className="btn btn-primary"
                                   disabled={
                                     busy ||
                                     (source === "manual" &&
-                                      (!weight || !manualReason.trim()))
+                                      (!weight || !manualReason.trim())) ||
+                                    (source === "scale" && !selectedDevice)
                                   }
                                   onClick={async () => {
                                     if (
@@ -1424,12 +1655,13 @@ export default function TruckQueue({ today }: { today: string }) {
                                           kind: "capture",
                                           id: weighing.id,
                                           source,
-                                          scenario,
                                           ...(source === "manual"
                                             ? {
                                                 weightKg: Number(weight),
                                                 reason: manualReason,
                                               }
+                                            : source === "scale" && selectedDevice
+                                            ? { deviceId: selectedDevice }
                                             : {}),
                                         },
                                         "Weight captured and saved",
@@ -1528,6 +1760,19 @@ export default function TruckQueue({ today }: { today: string }) {
                               }
                             >
                               <CheckCheck size={18} /> Record gate exit
+                            </button>
+                          )}
+                          {["cleared", "completed", "rejected"].includes(weighing.stage) && weighing.result && (
+                            <button
+                              className="btn btn-outline"
+                              onClick={() => setPrintDraft({
+                                visitId: weighing.id,
+                                drNo: "",
+                                invoice: "",
+                                quantities: weighing.lines.map(() => ""),
+                              })}
+                            >
+                              <Printer size={18} /> Print Entry/Exit Pass
                             </button>
                           )}
                           {["scheduled", "waiting", "called", "held"].includes(
@@ -1929,7 +2174,13 @@ export default function TruckQueue({ today }: { today: string }) {
                         time: selected.time,
                         supplier: selected.origin,
                         plate: selected.plate,
+                        truckType: selected.truckType ?? "",
+                        hauler: selected.carrier ?? "",
                         driver: selected.driver,
+                        driverId: selected.driverId ?? "",
+                        helperName: selected.helperName ?? "",
+                        helperId: selected.helperId ?? "",
+                        contact: selected.contact ?? "",
                         lines: selected.lines.map((line) => ({ ...line })),
                       });
                       setDetail("");
@@ -2061,7 +2312,13 @@ export default function TruckQueue({ today }: { today: string }) {
                 <label>Time<input type="time" value={editDraft.time} onChange={(event) => setEditDraft({ ...editDraft, time: event.target.value })} /></label>
                 <label>Supplier<input maxLength={150} value={editDraft.supplier} onChange={(event) => setEditDraft({ ...editDraft, supplier: event.target.value })} /></label>
                 <label>Truck plate<input maxLength={20} value={editDraft.plate} onChange={(event) => setEditDraft({ ...editDraft, plate: event.target.value.toUpperCase() })} /></label>
+                <label>Truck type<input maxLength={50} value={editDraft.truckType} onChange={(event) => setEditDraft({ ...editDraft, truckType: event.target.value })} /></label>
+                <label>Hauler<input maxLength={150} value={editDraft.hauler} onChange={(event) => setEditDraft({ ...editDraft, hauler: event.target.value })} /></label>
                 <label>Driver name<input maxLength={100} value={editDraft.driver} onChange={(event) => setEditDraft({ ...editDraft, driver: event.target.value })} /></label>
+                <label>Driver ID<input maxLength={50} value={editDraft.driverId} onChange={(event) => setEditDraft({ ...editDraft, driverId: event.target.value })} /></label>
+                <label>Helper name<input maxLength={100} value={editDraft.helperName} onChange={(event) => setEditDraft({ ...editDraft, helperName: event.target.value })} /></label>
+                <label>Helper ID<input maxLength={50} value={editDraft.helperId} onChange={(event) => setEditDraft({ ...editDraft, helperId: event.target.value })} /></label>
+                <label>Contact #<input maxLength={30} value={editDraft.contact} onChange={(event) => setEditDraft({ ...editDraft, contact: event.target.value })} /></label>
               </div>
               <h3>Products</h3>
               {editDraft.lines.map((line, index) => (
@@ -2106,13 +2363,73 @@ export default function TruckQueue({ today }: { today: string }) {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!printDraft} onOpenChange={(open) => { if (!open) setPrintDraft(null); }}>
+        <DialogContent className="checkin-dialog">
+          <DialogHeader>
+            <DialogTitle>Print Entry / Exit Pass</DialogTitle>
+            <DialogDescription>Enter document references, then open the print preview.</DialogDescription>
+          </DialogHeader>
+          {printDraft && (() => {
+            const pv = state?.visits.find(v => v.id === printDraft.visitId);
+            if (!pv) return null;
+            return (
+              <div className="checkin-form">
+                <div className="form-grid">
+                  <label>DR No. <input maxLength={30} value={printDraft.drNo} placeholder="e.g. 13449" onChange={e => setPrintDraft({ ...printDraft, drNo: e.target.value })} /></label>
+                  <label>Invoice No. <input maxLength={50} value={printDraft.invoice} onChange={e => setPrintDraft({ ...printDraft, invoice: e.target.value })} /></label>
+                </div>
+                <h3>Quantities</h3>
+                <p className="small-description">Number of bags, sacks, or units per product.</p>
+                <div className="form-grid">
+                  {pv.lines.map((line, i) => (
+                    <label key={line.document + "|" + line.item}>
+                      {line.description}
+                      <input
+                        maxLength={20}
+                        value={printDraft.quantities[i] ?? ""}
+                        onChange={e => {
+                          const q = [...printDraft.quantities];
+                          q[i] = e.target.value;
+                          setPrintDraft({ ...printDraft, quantities: q });
+                        }}
+                      />
+                    </label>
+                  ))}
+                </div>
+                <div className="form-actions">
+                  <button className="btn btn-outline" onClick={() => setPrintDraft(null)}>Cancel</button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      if (!state) return;
+                      const site = state.sites.find(s => s.id === pv.plant);
+                      const html = generateEntryExitPassHtml(pv, printDraft, site?.label ?? pv.plant, window.location.origin);
+                      const pw = Math.round(screen.width * 0.5);
+                      const ph = Math.round(screen.height * 0.5);
+                      const px = Math.round((screen.width - pw) / 2);
+                      const py = Math.round((screen.height - ph) / 2);
+                      const w = window.open("", "_blank", `width=${pw},height=${ph},left=${px},top=${py},resizable=yes,scrollbars=yes`);
+                      if (!w) { alert("Allow pop-ups to open the print preview."); return; }
+                      w.document.write(html);
+                      w.document.close();
+                    }}
+                  >
+                    <Printer size={16} /> Open Print Preview
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={!!importRows}
         onOpenChange={(open) => {
           if (!open && !importBusy) setImportRows(null);
         }}
       >
-        <DialogContent className="checkin-dialog">
+        <DialogContent className="checkin-dialog wide-dialog">
           <DialogHeader>
             <DialogTitle>Review {queueType === "return" ? "Return Delivery" : queueType === "outbound" ? "outbound" : "inbound"} schedule upload</DialogTitle>
             <DialogDescription>
@@ -2122,10 +2439,10 @@ export default function TruckQueue({ today }: { today: string }) {
           {importError && <p className="form-error">{importError}</p>}
           <div className="table-scroll">
             <table className="delivery-table">
-              <thead><tr><th>Date / time</th><th>Type / document</th><th>Plate</th><th>Product</th><th>Expected kg</th></tr></thead>
+              <thead><tr><th>Date / time</th><th>Type / document</th><th>Plate</th><th>Truck type</th><th>Driver</th><th>Helper</th><th>Contact</th><th>Hauler</th><th>Product</th><th>Expected kg</th></tr></thead>
               <tbody>
                 {(importRows ?? []).slice(0, 12).map((row, index) => (
-                  <tr key={index}><td>{row.date} {row.time}</td><td>{queueType === "outbound" ? "DO" : queueType === "return" ? "RD" : row.type} {row.document}</td><td>{row.plate || "Unassigned"}</td><td>{row.material} - {row.product}</td><td>{row.quantity.toLocaleString()}</td></tr>
+                  <tr key={index}><td>{row.date} {row.time}</td><td>{queueType === "outbound" ? "DO" : queueType === "return" ? "RD" : row.type} {row.document}</td><td>{row.plate || "Unassigned"}</td><td>{row.truckType || "—"}</td><td>{row.driver || "—"}{row.driverId ? <><br /><small>{row.driverId}</small></> : null}</td><td>{row.helperName || "—"}{row.helperId ? <><br /><small>{row.helperId}</small></> : null}</td><td>{row.contact || "—"}</td><td>{row.hauler || "—"}</td><td>{row.material} - {row.product}</td><td>{row.quantity.toLocaleString()}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -3423,8 +3740,8 @@ function RecipientsPanel({
         <CollapsibleContent>
           <p className="small-description">
             Who receives weight-exception e-mail notifications, maintained
-            per site and delivery direction. Add up to 3 recipients; matching
-            recipients receive the email. Separate from sign-in accounts.
+            per site and delivery direction. Add up to 3 recipients per site;
+            matching recipients receive the email. Separate from sign-in accounts.
           </p>
           <div className="supervisor-list">
             {state.supervisors.map((s) => (
@@ -3532,7 +3849,7 @@ function RecipientsPanel({
                 Add recipient
               </button>
               <p className="capture-note">
-                {state.supervisors.length} of 3 recipients configured. Added
+                {state.supervisors.length} recipient{state.supervisors.length !== 1 ? "s" : ""} configured (max 3 per site). Added
                 recipients are notified for matching site and direction; this
                 does not create a sign-in account.
               </p>

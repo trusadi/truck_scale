@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { checkOrigin, HttpError } from "@/lib/operations-server";
-import { createSessionCookie, verifyLogin } from "@/lib/auth-server";
+import { createSessionCookie, recordLogin, verifyLogin } from "@/lib/auth-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     const body = schema.parse(JSON.parse(await request.text()));
     const user = await verifyLogin(body.email, body.password);
     if (!user) throw new HttpError("Incorrect email or password.", 401);
+    await recordLogin(user);
     const cookie = await createSessionCookie({
       email: user.email,
       name: user.name,
