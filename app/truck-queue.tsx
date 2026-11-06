@@ -610,7 +610,7 @@ export default function TruckQueue({ today }: { today: string }) {
             setQueueType(data.actor.direction as Direction);
           }
         } else if (visit) setPlant(visit.plant);
-        if (data.sites?.length) setNewUser((u) => ({ ...u, plant: u.plant || data.sites[0].id }));
+        if (data.sites?.length) setNewUser((u) => ({ ...u, plant: u.plant || (data.sites[0]?.id ?? "") }));
         initialized.current = true;
       }
     } catch (e) {
@@ -3201,7 +3201,7 @@ function SettingsPanel({
         <SitesPanel state={state} run={run} />
         <MaterialCatalogPanel state={state} run={run} />
         <RecipientsPanel state={state} run={run} />
-        <UsersPanel isAdmin={state.actor.isAdmin} />
+        <UsersPanel isAdmin={state.actor.isAdmin} sites={state.sites} />
         <LoginActivityPanel isAdmin={state.actor.isAdmin} />
         <SmtpPanel isAdmin={state.actor.isAdmin} />
         <section className="settings-card">
@@ -3939,7 +3939,7 @@ function LoginActivityPanel({ isAdmin }: { isAdmin: boolean }) {
     </section>
   );
 }
-function UsersPanel({ isAdmin }: { isAdmin: boolean }) {
+function UsersPanel({ isAdmin, sites }: { isAdmin: boolean; sites: { id: string; label: string }[] }) {
   const [users, setUsers] = useState<PublicUserRecord[] | null>(null),
     [usersRevision, setUsersRevision] = useState(0),
     [usersError, setUsersError] = useState(""),
@@ -4056,7 +4056,7 @@ function UsersPanel({ isAdmin }: { isAdmin: boolean }) {
                 </strong>
                 <p>{u.email}</p>
                 <span>
-                  {u.role}  -  {u.plant === "ALL" ? "All sites" : u.plant}  - {" "}
+                  {u.role}  -  {u.plant === "ALL" ? "All sites" : (sites.find((s) => s.id === u.plant)?.label ?? u.plant)}  - {" "}
                   {u.direction === "return" ? "Return Delivery only" : u.direction === "both" ? "All" : u.direction}
                 </span>
               </div>
@@ -4099,7 +4099,7 @@ function UsersPanel({ isAdmin }: { isAdmin: boolean }) {
                           }
                           label={"Site for " + u.name}
                         >
-                          {state.sites.map((option) => (
+                          {sites.map((option) => (
                             <SelectItem key={option.id} value={option.id}>
                               {option.label}
                             </SelectItem>
@@ -4298,7 +4298,7 @@ function UsersPanel({ isAdmin }: { isAdmin: boolean }) {
                   label="New user site"
                   className="full-width"
                 >
-                  {state.sites.map((p) => (
+                  {sites.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.label}
                     </SelectItem>
