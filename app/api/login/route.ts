@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const body = schema.parse(JSON.parse(await request.text()));
     const user = await verifyLogin(body.email, body.password);
     if (!user) throw new HttpError("Incorrect email or password.", 401);
-    await recordLogin(user);
+    recordLogin(user).catch(() => {}); // non-blocking — history failure must not block sign-in
     const cookie = await createSessionCookie({
       email: user.email,
       name: user.name,
