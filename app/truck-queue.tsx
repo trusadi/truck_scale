@@ -599,7 +599,7 @@ export default function TruckQueue({ today }: { today: string }) {
           "visit",
         );
         const visit = data.visits.find((item: Visit) => item.id === visitId);
-        setDate(visit?.date ?? data.sampleDate);
+        setDate(visit?.date ?? today);
         if (!data.actor.isAdmin) {
           setPlant(data.actor.plant);
           if (data.actor.direction === "return") {
